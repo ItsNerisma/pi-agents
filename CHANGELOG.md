@@ -5,7 +5,7 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] - 2026-07-21
 
 ### Added
 
@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   present exactly once when configured.
 - README and inline comments no longer describe delegation as a subprocess; it
   runs in an in-process SDK session via `createAgentSession`.
+- `agent-architect`, `agent-architect-web`, and `agent-session-reviewer` now
+  declare allowed delegation targets via the `delegate:` field.
 
 ## [1.0.3] - 2026-07-21
 

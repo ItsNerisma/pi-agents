@@ -7,6 +7,9 @@ tools:
   - session_find
   - session_stats
   - session_extract
+delegate:
+  - agent-architect
+  - agent-skill-creator
 thinkingLevel: medium
 ---
 

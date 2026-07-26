@@ -8,6 +8,8 @@ tools:
   - ls
   - agent_capabilities
   - agent_validate
+delegate:
+  - agent-skill-creator
   - find
   - grep
   - web_search
