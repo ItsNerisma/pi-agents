@@ -101,11 +101,14 @@ interface SkillLike {
  * - `skills:` absent (undefined) → include project-local skills only.
  * - `skills:` with a list → include matched skills, then any remaining
  *   project-local skills.
+ * - `skills: false` → disable all skill injection.
  */
 export function skillsSnippet(
-  wanted: string[] | undefined,
+  wanted: string[] | false | undefined,
   available: unknown,
 ): { snippet: string; missing: string[] } {
+  if (wanted === false) return { snippet: "", missing: [] };
+
   const list: SkillLike[] = Array.isArray(available)
     ? (available.filter((s) => s && typeof s === "object") as SkillLike[])
     : [];

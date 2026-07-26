@@ -143,7 +143,8 @@ export function parseAgentMarkdown(
   const name = asString(frontmatter.name);
   const description = asString(frontmatter.description);
   const tools = asList(frontmatter.tools, "tools", diagnostics);
-  const skills = asList(frontmatter.skills, "skills", diagnostics);
+  const skills: string[] | false | undefined =
+    frontmatter.skills === false ? false : asList(frontmatter.skills, "skills", diagnostics);
   const model = asString(frontmatter.model);
   const thinkingLevel = asString(frontmatter.thinkingLevel);
   const systemPrompt = body.trim();

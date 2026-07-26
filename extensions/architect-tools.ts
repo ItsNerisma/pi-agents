@@ -35,7 +35,7 @@ interface ValidationResult {
     name: string;
     description: string;
     tools?: string[];
-    skills?: string[];
+    skills?: string[] | false;
     delegate?: string[];
     model?: string;
     thinkingLevel?: string;
@@ -160,7 +160,7 @@ export function registerArchitectTools(pi: ExtensionAPI): void {
         }
       }
 
-      if (agent.skills?.length) {
+      if (Array.isArray(agent.skills) && agent.skills.length) {
         if (!skillInventoryKnown) {
           addDiagnostic(diagnostics, "warning", "skills_unavailable", "Runtime skill inventory is unavailable");
         } else {

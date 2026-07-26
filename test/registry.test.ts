@@ -120,3 +120,49 @@ test("discovers project, global and system agents with precedence", () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("parseAgentMarkdown: skills: false disables skills", () => {
+  const md = `---
+name: minimal
+description: No skills agent
+skills: false
+---
+
+Act.
+`;
+  const parsed = parseAgentMarkdown(md, "project", "/tmp/minimal.md");
+  assert.equal(parsed.agent?.skills, false);
+  assert.deepEqual(parsed.diagnostics, []);
+});
+
+test("parseAgentMarkdown: skills absent returns undefined", () => {
+  const parsed = parseAgentMarkdown(validAgent, "project", "/tmp/reviewer.md");
+  assert.equal(parsed.agent?.skills, undefined);
+});
+
+test("parseAgentMarkdown: skills as YAML list", () => {
+  const md = `---
+name: skilled
+description: Has skills
+skills: [alpha, beta]
+---
+
+Act.
+`;
+  const parsed = parseAgentMarkdown(md, "project", "/tmp/skilled.md");
+  assert.deepEqual(parsed.agent?.skills, ["alpha", "beta"]);
+  assert.deepEqual(parsed.diagnostics, []);
+});
+
+test("parseAgentMarkdown: skills empty list returns undefined", () => {
+  const md = `---
+name: unskilled
+description: No skills
+skills: []
+---
+
+Act.
+`;
+  const parsed = parseAgentMarkdown(md, "project", "/tmp/unskilled.md");
+  assert.equal(parsed.agent?.skills, undefined);
+});

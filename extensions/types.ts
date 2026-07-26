@@ -7,8 +7,9 @@ export interface AgentConfig {
   description: string;
   tools?: string[];
   /** Skill names selected in frontmatter. Project-local skills are always
-   * advertised as well; absent → project-local skills only. */
-  skills?: string[];
+   * advertised as well; absent → project-local skills only.
+   * `false` → disable all skill injection (even project-local). */
+  skills?: string[] | false;
   model?: string;
   thinkingLevel?: string;
   systemPrompt: string;
