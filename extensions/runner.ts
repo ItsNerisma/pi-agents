@@ -25,11 +25,11 @@
  *   - Collect the final output
  */
 
+import * as path from "node:path";
 import {
-  AuthStorage,
   createAgentSession,
   DefaultResourceLoader,
-  ModelRegistry,
+  ModelRuntime,
   SessionManager,
   type AgentSession,
   type AgentSessionEvent,
@@ -259,14 +259,14 @@ function processEvent(
 
 /**
  * Resolves an agent's `model:` frontmatter value ("provider/id" or bare id)
- * against a ModelRegistry. Same lookup rules as activation.ts/hook.ts.
+ * against a ModelRuntime. Same lookup rules as activation.ts/hook.ts.
  */
-function resolveModel(registry: ModelRegistry, modelSpec: string | undefined) {
+function resolveModel(runtime: ModelRuntime, modelSpec: string | undefined) {
   if (!modelSpec) return undefined;
   const slashIdx = modelSpec.indexOf("/");
   return slashIdx !== -1
-    ? registry.find(modelSpec.slice(0, slashIdx), modelSpec.slice(slashIdx + 1))
-    : registry.getAll().find((m) => m.id === modelSpec);
+    ? runtime.getModel(modelSpec.slice(0, slashIdx), modelSpec.slice(slashIdx + 1))
+    : runtime.getModels().find((m) => m.id === modelSpec);
 }
 
 // ─── Execution ────────────────────────────────────────────────────────────────
@@ -344,9 +344,13 @@ export async function runAgent(
     });
     await loader.reload();
 
-    const authStorage = AuthStorage.create();
-    const modelRegistry = ModelRegistry.create(authStorage);
-    const resolvedModel = resolveModel(modelRegistry, agent.model);
+    // ponytail: ModelRuntime handles auth and model resolution; AuthStorage
+    // and ModelRegistry are removed in pi >= 0.80.8.
+    const modelRuntime = await ModelRuntime.create({
+      authPath: path.join(agentDir, "auth.json"),
+      modelsPath: path.join(agentDir, "models.json"),
+    });
+    const resolvedModel = resolveModel(modelRuntime, agent.model);
 
     const { session: createdSession } = await createAgentSession({
       cwd,
@@ -359,8 +363,7 @@ export async function runAgent(
       model: resolvedModel,
       thinkingLevel: agent.thinkingLevel as ThinkingLevel | undefined,
       sessionManager: SessionManager.inMemory(),
-      authStorage,
-      modelRegistry,
+      modelRuntime,
     });
     session = createdSession;
 

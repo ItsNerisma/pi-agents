@@ -24,8 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   present exactly once when configured.
 - README and inline comments no longer describe delegation as a subprocess; it
   runs in an in-process SDK session via `createAgentSession`.
-- `cloude`, `cloude-5yo`, and `planner` now declare `code-explorer` as their
-  allowed delegation target via the `delegate:` field.
 
 ## [1.0.3] - 2026-07-21
 

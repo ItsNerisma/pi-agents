@@ -35,6 +35,8 @@ The extension supports two execution modes:
 
 ## Install
 
+Requires **Pi ≥ 0.80.8**.
+
 ```bash
 pi install npm:@nerisma/pi-agents
 ```
