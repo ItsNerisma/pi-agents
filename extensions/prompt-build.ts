@@ -20,6 +20,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { effectiveToolNames } from "./effective-tools.js";
+import { discoverAgents } from "./registry.js";
 import type { AgentConfig } from "./types.js";
 
 // ─── Date ────────────────────────────────────────────────────────────────────
@@ -156,6 +157,53 @@ export function skillsSnippet(
   return { snippet, missing };
 }
 
+// ─── Delegates ───────────────────────────────────────────────────────────────
+
+function xmlEscape(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/**
+ * Renders the agent's frontmatter `delegate:` selection as an XML block.
+ * Resolves names against `discoverAgents` to include descriptions.
+ */
+export function delegatesSnippet(
+  wanted: string[] | undefined,
+  cwd: string,
+): { snippet: string; missing: string[] } {
+  if (!wanted?.length) return { snippet: "", missing: [] };
+
+  const available = discoverAgents(cwd);
+  const byName = new Map(available.map((a) => [a.name, a]));
+  const found: AgentConfig[] = [];
+  const missing: string[] = [];
+
+  for (const name of wanted) {
+    const agent = byName.get(name);
+    if (agent) found.push(agent);
+    else missing.push(name);
+  }
+
+  if (!found.length) return { snippet: "", missing };
+
+  const entries = found
+    .map(
+      (a) =>
+        `  <agent>
+    <name>${xmlEscape(a.name)}</name>
+    <description>${xmlEscape(a.description)}</description>
+  </agent>`,
+    )
+    .join("\n");
+
+  const snippet =
+    `\n\n<available_delegates>\n` +
+    `You may delegate sub-tasks to these agents using the \`delegate\` tool. ` +
+    `Each agent works in isolation and returns a self-contained result.\n` +
+    `${entries}\n</available_delegates>`;
+  return { snippet, missing };
+}
+
 // ─── Context files (AGENTS.md) ───────────────────────────────────────────────
 
 /**
@@ -251,7 +299,7 @@ export function composeAgentPrompt(
   cwd: string,
   agent: AgentConfig,
   opts: { systemPromptOptions?: unknown; modelId?: string },
-): { prompt: string; missingSkills: string[] } {
+): { prompt: string; missingSkills: string[]; missingDelegates: string[] } {
   const spo = (opts.systemPromptOptions ?? {}) as {
     skills?: unknown;
     contextFiles?: unknown;
@@ -261,6 +309,9 @@ export function composeAgentPrompt(
 
   const { snippet, missing } = skillsSnippet(agent.skills, spo.skills);
   out += snippet;
+
+  const { snippet: delSnippet, missing: missingDelegates } = delegatesSnippet(agent.delegate, cwd);
+  out += delSnippet;
 
   if (agent.useAgentFile) {
     out += contextFilesSnippet(spo.contextFiles, cwd);
@@ -276,5 +327,5 @@ export function composeAgentPrompt(
   out += environmentSnippet(cwd, agent.model ?? opts.modelId, tools);
   out += currentDateSnippet();
 
-  return { prompt: out, missingSkills: missing };
+  return { prompt: out, missingSkills: missing, missingDelegates };
 }

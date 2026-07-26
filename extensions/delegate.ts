@@ -1,20 +1,14 @@
 /**
  * `delegate` tool — delegates a task to a specialized agent
  *
- * Single entry point for orchestration:
- *   - explorer (codebase exploration)
- *   - researcher (web/doc research)
- *   - planner (technical plan)
- *   - worker (execution)
- *
- * Each agent runs in a separate `pi --mode json` process.
+ * Each agent runs in an isolated in-process SDK session (no subprocess).
  * The result includes consumption metrics (tokens, cost).
  */
 
 import { Type } from "typebox";
 import { Text } from "@earendil-works/pi-tui";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { discoverAgents } from "./registry.js";
+import { discoverAgents, findAgent } from "./registry.js";
 import { runAgent, formatDuration, formatTokens } from "./runner.js";
 import type { AgentResult, DelegateDetails } from "./types.js";
 
@@ -38,7 +32,10 @@ function buildPromptGuidelines(agents: ReturnType<typeof discoverAgents>): strin
   return guidelines;
 }
 
-export function registerDelegateTool(pi: ExtensionAPI): void {
+export function registerDelegateTool(
+  pi: ExtensionAPI,
+  getActiveAgentName: () => string | null,
+): void {
   let cachedGuidelines: string[] | null = null;
   
   pi.registerTool({
@@ -60,6 +57,31 @@ export function registerDelegateTool(pi: ExtensionAPI): void {
       const agents = discoverAgents(ctx.cwd);
       if (!cachedGuidelines) {
         cachedGuidelines = buildPromptGuidelines(agents);
+      }
+
+      // ── Enforcement: if an active agent has a `delegate:` allow-list,
+      //     only those targets are permitted. The prompt alone is advisory;
+      //     this is the authoritative gate. ──
+      const activeName = getActiveAgentName();
+      if (activeName) {
+        const activeAgent = findAgent(ctx.cwd, activeName);
+        if (activeAgent?.delegate?.length) {
+          const needle = params.agent.toLowerCase();
+          const allowed = activeAgent.delegate.find((n) => n.toLowerCase() === needle);
+          if (!allowed) {
+            const available = activeAgent.delegate.join(", ");
+            return {
+              content: [{ type: "text", text: `Agent "${activeName}" cannot delegate to "${params.agent}". Allowed targets: ${available}` }],
+              details: {
+                agent: params.agent,
+                task: params.task,
+                exitCode: 1,
+                usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+                errorMessage: `Delegation denied: "${params.agent}" is not in ${activeName}'s delegate allow-list.`,
+              } as DelegateDetails,
+            };
+          }
+        }
       }
 
       // Normalize case: the LLM may pass "EXPLORER" while the frontmatter

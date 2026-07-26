@@ -23,6 +23,7 @@ export const AGENT_FRONTMATTER_FIELDS = new Set([
   "model",
   "thinkingLevel",
   "useAgentFile",
+  "delegate",
 ]);
 export const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
 
@@ -49,7 +50,7 @@ function asString(v: unknown): string | undefined {
 /** Accepts a YAML list or a comma-separated string, matching loader semantics. */
 function asList(
   value: unknown,
-  field: "tools" | "skills",
+  field: "tools" | "skills" | "delegate",
   diagnostics: AgentDiagnostic[],
 ): string[] | undefined {
   if (value === undefined) return undefined;
@@ -196,6 +197,7 @@ export function parseAgentMarkdown(
   }
 
   const useAgentFile = asBool(frontmatter.useAgentFile, diagnostics);
+  const delegate = asList(frontmatter.delegate, "delegate", diagnostics);
   const agent = name && description
     ? {
         name,
@@ -208,6 +210,7 @@ export function parseAgentMarkdown(
         source,
         filePath,
         useAgentFile,
+        delegate,
       }
     : undefined;
 
@@ -278,4 +281,20 @@ export function discoverAgents(cwd: string): AgentConfig[] {
 /** Finds an agent by exact name. */
 export function findAgent(cwd: string, name: string): AgentConfig | undefined {
   return discoverAgents(cwd).find((agent) => agent.name === name);
+}
+
+/**
+ * Effective tool list for an agent: explicit `tools:` or `DEFAULT_AGENT_TOOLS`,
+ * with `delegate` injected exactly once when `agent.delegate` names at least
+ * one allowed agent and `delegate` is not already present.
+ *
+ * Callers that need this logic: activation, hook guard, effective-tools.
+ * Runner.ts does NOT use this because sub‑agents must not re‑delegate.
+ */
+export function resolveTools(agent: AgentConfig): string[] {
+  const base = agent.tools?.length ? [...agent.tools] : [...DEFAULT_AGENT_TOOLS];
+  if (agent.delegate?.length && !base.includes("delegate")) {
+    base.push("delegate");
+  }
+  return base;
 }

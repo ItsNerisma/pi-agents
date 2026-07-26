@@ -86,6 +86,42 @@ test("validates a bundled agent with its uppercase filename", async () => {
   }
 });
 
+test("validates delegate references against discovered agents", async () => {
+  const cwd = mkdtempSync(join(tmpdir(), "pi-agents-architect-"));
+  // Create the agent under test
+  const agentsDir = join(cwd, ".pi", "agents");
+  mkdirSync(agentsDir, { recursive: true });
+  // Also create a valid target agent so the reference resolves
+  writeFileSync(join(agentsDir, "explorer.md"), `---\nname: explorer\ndescription: Explores code\n---\n\nExplore.\n`);
+  const orchestratorMd = `---\nname: orchestrator\ndescription: Routes tasks\ndelegate: [explorer]\ntools: [read]\n---\n\nAct.\n`;
+  writeFileSync(join(agentsDir, "orchestrator.md"), orchestratorMd);
+
+  try {
+    const { execute } = harness(cwd);
+    const validation = await execute("agent_validate", { scope: "project", name: "orchestrator" });
+    assert.equal(validation.details.valid, true);
+    assert.deepEqual(validation.details.normalized?.delegate, ["explorer"]);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test("rejects unknown delegate references", async () => {
+  const cwd = mkdtempSync(join(tmpdir(), "pi-agents-architect-"));
+  const agentsDir = join(cwd, ".pi", "agents");
+  mkdirSync(agentsDir, { recursive: true });
+  writeFileSync(join(agentsDir, "orchestrator.md"), `---\nname: orchestrator\ndescription: Routes tasks\ndelegate: [ghost]\ntools: [read]\n---\n\nAct.\n`);
+
+  try {
+    const { execute } = harness(cwd);
+    const validation = await execute("agent_validate", { scope: "project", name: "orchestrator" });
+    assert.equal(validation.details.valid, false);
+    assert.ok(validation.details.diagnostics.some((d: { code: string }) => d.code === "unknown_delegate"));
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
 test("rejects missing and symlinked final agents", async () => {
   const cwd = mkdtempSync(join(tmpdir(), "pi-agents-architect-"));
   const agents = join(cwd, ".pi", "agents");

@@ -10,7 +10,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import { DEFAULT_AGENT_TOOLS } from "./registry.js";
+import { resolveTools } from "./registry.js";
 import type { AgentConfig, ActiveAgentState } from "./types.js";
 
 /**
@@ -35,7 +35,7 @@ export async function applyAgent(
     savedThinkingLevel: pi.getThinkingLevel(),
   };
 
-  const toolsToSet = agent.tools?.length ? agent.tools : DEFAULT_AGENT_TOOLS;
+  const toolsToSet = resolveTools(agent);
   pi.setActiveTools(toolsToSet);
 
   if (agent.thinkingLevel) {

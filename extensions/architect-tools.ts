@@ -36,6 +36,7 @@ interface ValidationResult {
     description: string;
     tools?: string[];
     skills?: string[];
+    delegate?: string[];
     model?: string;
     thinkingLevel?: string;
     useAgentFile: boolean;
@@ -172,6 +173,15 @@ export function registerArchitectTools(pi: ExtensionAPI): void {
         }
       }
 
+      if (agent.delegate?.length) {
+        const knownAgents = new Set(discoverAgents(ctx.cwd).map((a) => a.name));
+        for (const name of agent.delegate) {
+          if (!knownAgents.has(name)) {
+            addDiagnostic(diagnostics, "error", "unknown_delegate", `Unknown delegate target: "${name}"`);
+          }
+        }
+      }
+
       if (!agent.model) {
         addDiagnostic(diagnostics, "warning", "inherited_model", "No model declared; the active/default model will be inherited");
       } else {
@@ -235,6 +245,7 @@ export function registerArchitectTools(pi: ExtensionAPI): void {
         description: agent.description,
         tools: agent.tools,
         skills: agent.skills,
+        delegate: agent.delegate,
         model: agent.model,
         thinkingLevel: agent.thinkingLevel,
         useAgentFile: !!agent.useAgentFile,

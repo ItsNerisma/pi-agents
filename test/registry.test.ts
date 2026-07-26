@@ -40,6 +40,53 @@ test("parseAgentMarkdown rejects an empty prompt", () => {
   assert.ok(parsed.diagnostics.some((diagnostic) => diagnostic.code === "empty_prompt"));
 });
 
+test("parseAgentMarkdown handles delegate as a YAML list", () => {
+  const md = `---
+name: orchestrator
+description: Routes tasks to specialists
+delegate: [explorer, researcher]
+---
+
+Decide who handles what.
+`;
+  const parsed = parseAgentMarkdown(md, "project", "/tmp/orchestrator.md");
+  assert.deepEqual(parsed.agent?.delegate, ["explorer", "researcher"]);
+  assert.deepEqual(parsed.diagnostics, []);
+});
+
+test("parseAgentMarkdown handles delegate as a comma-separated string", () => {
+  const md = `---
+name: orchestrator
+description: Routes tasks
+delegate: explorer, researcher
+---
+
+Act.
+`;
+  const parsed = parseAgentMarkdown(md, "project", "/tmp/orchestrator.md");
+  assert.deepEqual(parsed.agent?.delegate, ["explorer", "researcher"]);
+  assert.deepEqual(parsed.diagnostics, []);
+});
+
+test("parseAgentMarkdown diagnoses duplicate delegates", () => {
+  const md = `---
+name: orchestrator
+description: Routes tasks
+delegate: [explorer, explorer, researcher]
+---
+
+Act.
+`;
+  const parsed = parseAgentMarkdown(md, "project", "/tmp/orchestrator.md");
+  assert.deepEqual(parsed.agent?.delegate, ["explorer", "explorer", "researcher"]);
+  assert.ok(parsed.diagnostics.some((d) => d.code === "duplicate_delegate"));
+});
+
+test("parseAgentMarkdown returns undefined delegate when absent", () => {
+  const parsed = parseAgentMarkdown(validAgent, "project", "/tmp/reviewer.md");
+  assert.equal(parsed.agent?.delegate, undefined);
+});
+
 test("discovers project, global and system agents with precedence", () => {
   const root = mkdtempSync(join(tmpdir(), "pi-agents-registry-"));
   const cwd = join(root, "project");

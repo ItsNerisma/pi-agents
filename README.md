@@ -160,13 +160,13 @@ Agent creation writes the approved definition directly to its final path, then v
 
 ## Delegation
 
-The `delegate` tool runs a focused task in an isolated pi process:
+The `delegate` tool runs a focused task in an isolated in-process session:
 
 ```text
 delegate agent=<name> task=<task with all required context>
 ```
 
-The subprocess receives the selected agent's composed prompt, tools, model, and thinking level. Output is streamed back with token, cost, duration, and tool-call metrics. Delegation is useful when the main agent should keep its role or context while a specialist handles a bounded subtask.
+The sub-agent runs in an isolated SDK session with its own composed prompt, tools, model, and thinking level. Output is streamed back with token, cost, duration, and tool-call metrics. Delegation is useful when the main agent should keep its role or context while a specialist handles a bounded subtask.
 
 ## Built-in tools
 
@@ -235,8 +235,9 @@ Locate the relevant flow and return concise file and symbol references. Do not m
 | `model` | no | `provider/model` or a bare model ID. |
 | `thinkingLevel` | no | Reasoning level supported by the selected model. |
 | `useAgentFile` | no | Append the current directory's `AGENTS.md` when `true`. |
+| `delegate` | no | Agent names this agent may delegate to. The `delegate` tool is added automatically. |
 
-The prompt is composed with selected skills, optional project context, environment information, and the current date. Use `/agent-prompt` to inspect the effective result.
+The prompt is composed with selected skills, allowed delegates, optional project context, environment information, and the current date. Use `/agent-prompt` to inspect the effective result.
 
 ## Development
 

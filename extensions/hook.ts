@@ -39,7 +39,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { findAgent, DEFAULT_AGENT_TOOLS } from "./registry.js";
+import { findAgent, resolveTools } from "./registry.js";
 import { applyAgent, readPersistedAgent } from "./activation.js";
 import { composeAgentPrompt } from "./prompt-build.js";
 import { AGENT_PROMPT_VIEW_TYPE, recordSentPrompt } from "./prompt-store.js";
@@ -165,13 +165,18 @@ export function registerHooks(
       if (!agent?.systemPrompt) {
         return;
       }
-      const { prompt, missingSkills } = composeAgentPrompt(pi, ctx.cwd, agent, {
+      const { prompt, missingSkills, missingDelegates } = composeAgentPrompt(pi, ctx.cwd, agent, {
         systemPromptOptions: (event as { systemPromptOptions?: unknown }).systemPromptOptions,
         modelId: ctx.model?.id,
       });
       if (missingSkills.length) {
         try {
           ctx.ui.notify(`Agent "${agent.name}": unknown skills ignored: ${missingSkills.join(", ")}`, "warning");
+        } catch { /* no UI */ }
+      }
+      if (missingDelegates.length) {
+        try {
+          ctx.ui.notify(`Agent "${agent.name}": unknown delegates ignored: ${missingDelegates.join(", ")}`, "warning");
         } catch { /* no UI */ }
       }
       recordSentPrompt(pi, { agentName: agent.name, prompt, source: "agent" });
@@ -183,7 +188,7 @@ export function registerHooks(
       // transports (e.g. pi-anthropic-oauth) that bypass before_provider_request.
       // Also records the final list so /agent-tools works for every provider.
       try {
-        const toolsToSet = agent.tools?.length ? agent.tools : DEFAULT_AGENT_TOOLS;
+        const toolsToSet = resolveTools(agent);
         pi.setActiveTools(toolsToSet);
         recordSentTools({
           agentName: agent.name,
@@ -227,8 +232,8 @@ export function registerHooks(
     try {
       const agentName = getActiveAgentName();
       if (agentName) {
-        const allow = findAgent(ctx.cwd, agentName)?.tools;
-        if (allow?.length) allowSet = new Set(allow);
+        const agent = findAgent(ctx.cwd, agentName);
+        if (agent) allowSet = new Set(resolveTools(agent));
       }
     } catch {
       // fail-open: no allow-list → no filtering

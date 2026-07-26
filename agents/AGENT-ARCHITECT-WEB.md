@@ -49,7 +49,7 @@ Présente une conception compacte comprenant :
 - actions autonomes et actions soumises à confirmation ;
 - workflow, critères de qualité et contrat de sortie.
 
-Omet `model`, `thinkingLevel`, `skills` et `useAgentFile` sans justification concrète. N’ajoute que les politiques déclenchées par les capacités retenues : mutation locale, suppression, service externe, web ou données sensibles. Demande une seule approbation explicite sur cette conception avant toute écriture.
+Omet `model`, `thinkingLevel`, `skills`, `delegate` et `useAgentFile` sans justification concrète. N’ajoute que les politiques déclenchées par les capacités retenues : mutation locale, suppression, service externe, web ou données sensibles. Demande une seule approbation explicite sur cette conception avant toute écriture.
 
 Si une capacité indispensable manque, vérifie d’abord l’existant puis propose seulement le contrat minimal de l’artefact adapté :
 
@@ -65,7 +65,7 @@ Le nom doit respecter `^[a-z0-9][a-z0-9-]*$` et correspondre au fichier. Après 
 - global : `~/.pi/agent/agents/<nom>.md` ;
 - projet : `<cwd>/.pi/agents/<nom>.md`.
 
-Écris une fois le Markdown complet avec `write`, puis appelle `agent_validate`. Si la validation échoue, corrige seulement la cible avec `edit` et valide à nouveau. Le fichier doit contenir un frontmatter YAML avec `name` et `description`, éventuellement `tools`, `skills`, `model`, `thinkingLevel` ou `useAgentFile`, suivi d’un prompt système autonome et sans placeholder.
+Écris une fois le Markdown complet avec `write`, puis appelle `agent_validate`. Si la validation échoue, corrige seulement la cible avec `edit` et valide à nouveau. Le fichier doit contenir un frontmatter YAML avec `name` et `description`, éventuellement `tools`, `skills`, `delegate`, `model`, `thinkingLevel` ou `useAgentFile`, suivi d’un prompt système autonome et sans placeholder.
 
 ## Garde-fous et sortie
 

@@ -13,13 +13,14 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { findAgent } from "./registry.js";
+import { findAgent, resolveTools } from "./registry.js";
 
 /**
  * Names of the tools effectively sent to the provider for (cwd, active agent).
  *
  *   - no active agent, or agent without `tools:` → all active tools (no filtering).
- *   - otherwise → intersection of active tools with the frontmatter allow-list.
+ *   - otherwise → intersection of active tools with the resolved allow-list
+ *     (which auto-injects `delegate` when `delegate:` frontmatter is set).
  *
  * `agentName` typically comes from `process.env.PI_ACTIVE_AGENT` (set by the
  * agents extension) on the UI side, or from internal state on the hook side.
@@ -31,8 +32,9 @@ export function effectiveToolNames(
 ): string[] {
   const active = pi.getActiveTools();
   if (!agentName) return active;
-  const allow = findAgent(cwd, agentName)?.tools;
-  if (!allow?.length) return active;
+  const agent = findAgent(cwd, agentName);
+  if (!agent) return active;
+  const allow = resolveTools(agent);
   const allowSet = new Set(allow);
   return active.filter((name) => allowSet.has(name));
 }

@@ -5,6 +5,26 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `delegate:` frontmatter field: list of agent names this agent may delegate to.
+  The `delegate` tool is injected automatically (de-duplicated if already in
+  `tools:`), and allowed targets are enforced at execution time.
+- `<available_delegates>` XML section in composed prompts, listing each allowed
+  agent's name and description so the model knows when to delegate.
+- `agent_validate` checks that every delegate name resolves to a discoverable
+  agent and reports `unknown_delegate` errors.
+
+### Changed
+
+- Effective tool list is now computed by a single helper (`resolveTools`) shared
+  by activation, the hook guard, and the tools UI, ensuring `delegate` is
+  present exactly once when configured.
+- README and inline comments no longer describe delegation as a subprocess; it
+  runs in an in-process SDK session via `createAgentSession`.
+
 ## [1.0.3] - 2026-07-21
 
 ### Changed

@@ -17,6 +17,9 @@ export interface AgentConfig {
   /** If true, loads AGENTS.md from the current directory and appends it to the
    * system prompt. Silent if absent. */
   useAgentFile?: boolean;
+  /** Agent names this agent is allowed to delegate to. The `delegate` tool is
+   * injected automatically when set; absent or empty → no delegation. */
+  delegate?: string[];
 }
 
 export interface AgentUsage {

@@ -29,7 +29,7 @@ export default function (pi: ExtensionAPI) {
   const setState = (s: ActiveAgentState | null) => { activeAgentState = s; };
 
   // Registration
-  registerDelegateTool(pi);
+  registerDelegateTool(pi, () => activeAgentState?.name ?? null);
   registerArchitectTools(pi);
   registerSkillTools(pi);
   registerSessionTools(pi);
