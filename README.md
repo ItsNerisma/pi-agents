@@ -27,6 +27,9 @@
 | `agent-skill-creator` | Compare existing public skills, create or adapt a standards-compliant skill, and install it safely. |
 | `agent-pi-engineer` | Create or modify a Pi extension that exposes tools or commands, with the smallest reliable change. |
 | `agent-session-reviewer` | Audit a session, including decision quality, tool usage, missed parallelism, and opportunities for agents, skills, or tools. |
+| `planner` | Explore a change in read-only mode and produce an implementation plan; delegates targeted code harvesting when entry points are unknown. |
+| `code-explorer` | Harvest relevant files, symbols, line ranges, and snippets through a read-only funnel for an agent that will reason from them. |
+| `builder` | Execute an established implementation plan, validate it, and create a focused local commit. |
 
 The extension supports two execution modes:
 
@@ -50,7 +53,7 @@ Requires **Pi ≥ 0.80.8**.
 pi install npm:@nerisma/pi-agents
 ```
 
-The five system agents remain in the installed `pi-agents` package and are read when agents are discovered. They are not copied into `~/.pi/agent/agents/`. Project agents override global agents with the same name, and global agents override system agents.
+The eight system agents remain in the installed `pi-agents` package and are read when agents are discovered. They are not copied into `~/.pi/agent/agents/`. Project agents override global agents with the same name, and global agents override system agents.
 
 Reload pi after installation so its extensions and system agents are discovered:
 
@@ -78,6 +81,9 @@ Or activate a role directly:
 /agent agent-skill-creator
 /agent agent-pi-engineer
 /agent agent-session-reviewer
+/agent planner
+/agent code-explorer
+/agent builder
 ```
 
 Return to the normal pi prompt with:
@@ -177,7 +183,7 @@ The `delegate` tool runs a focused task in an isolated in-process session:
 delegate agent=<name> task=<task with all required context>
 ```
 
-The sub-agent runs in an isolated SDK session with its own composed prompt, tools, model, and thinking level. Output is streamed back with token, cost, duration, and tool-call metrics. Delegation is useful when the main agent should keep its role or context while a specialist handles a bounded subtask.
+The sub-agent runs in an isolated SDK session with its own composed prompt, tools, model, and thinking level. Output is streamed back with token, cost, duration, and tool-call metrics. Delegation is useful when the main agent should keep its role or context while a specialist handles a bounded subtask. The bundled `planner` delegates only to `code-explorer`, which returns targeted code excerpts rather than an implementation analysis.
 
 ## Built-in tools
 
