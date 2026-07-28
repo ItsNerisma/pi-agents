@@ -58,7 +58,7 @@ export function formatDuration(ms: number): string {
 // ─── Event stream processing ───────────────────────────────────────────────────
 
 type StreamEntry =
-  | { type: "status"; text: string }
+  | { type: "text"; text: string }
   | { type: "tool"; id: string; name: string; detail: string; done: boolean; failed: boolean };
 
 interface StreamState {
@@ -94,6 +94,10 @@ function snapshot(state: StreamState, durationMs: number): AgentProgress {
         : `  [..] TOOL ${e.name}${e.detail ? " | " + e.detail : ""}`;
       actions.push(label);
       if (!e.done) activeTools.push(label);
+      const marker = e.done ? (e.failed ? "✗" : "✓") : "…";
+      const verb = e.done ? "" : " TOOL";
+      transcriptLines.push(`  [${marker}]${verb} ${e.name}${e.detail ? " | " + e.detail : ""}`);
+      lastWasTool = true;
     }
   }
   if (state.textAcc) {
