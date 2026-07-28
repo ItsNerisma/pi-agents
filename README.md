@@ -222,7 +222,7 @@ Agents are discovered from:
 - `~/.pi/agent/agents/*.md` globally;
 - the `agents/` directory shipped with `pi-agents` for system agents.
 
-Project agents override global agents with the same name, and global agents override system agents. Each file contains YAML frontmatter followed by its system prompt:
+Project agents override global agents with the same name, and global agents override system agents. Each file contains YAML frontmatter followed by its system prompt. Only `name` and `description` are required — every other field is opt-in, so you declare exactly what the agent needs and nothing more:
 
 ```markdown
 ---
@@ -250,7 +250,7 @@ Locate the relevant flow and return concise file and symbol references. Do not m
 | `useAgentFile` | no | Append the current directory's `AGENTS.md` when `true`. |
 | `delegate` | no | Agent names this agent may delegate to. The `delegate` tool is added automatically. |
 
-The prompt is composed with selected skills, allowed delegates, optional project context, environment information, and the current date. Use `/agent-prompt` to inspect the effective result.
+Every omitted field inherits the current session's setting: `model` and `thinkingLevel` stay as they were, `tools` default to pi's built-in set including `bash`. This keeps definitions minimal — declare only what must differ. The final prompt is composed with selected skills, allowed delegates, optional project context, environment information, and the current date. Use `/agent-prompt` to inspect the effective result.
 
 ## Development
 
