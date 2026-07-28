@@ -16,7 +16,7 @@
 
 </div>
 
-`pi-agents` lets you switch from a general coding assistant to a focused role with a dedicated prompt, a least-privilege tool set, optional skills, and an appropriate model. It also provides safe workflows for creating agents, tools, and Agent Skills, plus evidence-based reviews of persisted sessions.
+`pi-agents` lets you switch from a general coding assistant to a focused role with a dedicated prompt, a least-privilege tool set, optional skills, and an appropriate model. It also provides safe workflows for creating agents and Pi extensions, authoring Agent Skills, and reviewing persisted sessions with evidence-based recommendations.
 
 ## What you get
 
@@ -25,13 +25,22 @@
 | `agent-architect` | Decide whether a need calls for a prompt, skill, tool, or agent, then create an agent when justified — no web access required. |
 | `agent-architect-web` | Same role, with web research when external or unstable information matters; requires `pi-web-access`. |
 | `agent-skill-creator` | Compare existing public skills, create or adapt a standards-compliant skill, and install it safely. |
-| `agent-tool-creator` | Implement the smallest reliable pi tool from an approved contract or a direct request. |
+| `agent-pi-engineer` | Create or modify a Pi extension that exposes tools or commands, with the smallest reliable change. |
 | `agent-session-reviewer` | Audit a session, including decision quality, tool usage, missed parallelism, and opportunities for agents, skills, or tools. |
 
 The extension supports two execution modes:
 
 - **Agent mode** replaces the current system prompt and enforces the selected agent's tool allow-list before the request reaches the model.
-- **Delegation** runs a specialized agent in an isolated pi subprocess and returns its result with usage metrics.
+- **Delegation** runs a specialized agent in an isolated in-process session, returning its result with usage and cost metrics.
+
+## Philosophy
+
+`pi-agents` is built on four principles drawn from how the agents themselves operate:
+
+- **Least invention.** Before creating an agent, skill, or tool, first check whether an existing capability, a one-off prompt, or a native pi feature already covers the need. The architect agents enforce this explicitly.
+- **Least privilege.** Each agent declares only the tools it actually needs. While an agent is active, the allow-list is reapplied before every provider request, including tools injected by other extensions.
+- **Bounded delegation.** A delegated task runs in an isolated session with its own prompt, tools, and model. The main agent keeps its role and context; the sub-agent returns a targeted result with usage metrics.
+- **Evidence over opinion.** Session reviews use persisted traces, branch relationships, and tool-level metrics. Recommendations cite concrete occurrences, not general trends.
 
 ## Install
 
@@ -67,7 +76,7 @@ Or activate a role directly:
 /agent agent-architect
 /agent agent-architect-web
 /agent agent-skill-creator
-/agent agent-tool-creator
+/agent agent-pi-engineer
 /agent agent-session-reviewer
 ```
 
@@ -121,20 +130,20 @@ The skill creator:
 
 Project skills are installed under `.pi/skills/<name>/`; global skills go under `~/.pi/agent/skills/<name>/`. Downloading or cloning a public skill and installing dependencies require separate confirmation. External skills and their scripts are treated as untrusted code and reviewed before installation.
 
-### Create a tool
+### Create or modify a Pi extension
 
 ```text
-/agent agent-tool-creator
-Create a read-only tool that extracts the schema version from this project's migration files.
+/agent agent-pi-engineer
+Add a tool that extracts the schema version from this project's migration files to the nearest project extension.
 ```
 
-The tool creator prefers existing code, Node APIs, pi APIs, and installed dependencies. It adds the smallest useful test, runs relevant checks, and avoids speculative abstractions.
+The engineer first asks whether you want a new extension project or to modify an existing one, then produces the smallest reliable change using existing code, Node APIs, and pi APIs.
 
 ### Review a session
 
 ```text
 /agent agent-session-reviewer
-Review the latest session for agent-tool-creator.
+Review the latest session for agent-pi-engineer.
 ```
 
 The reviewer follows persisted branch relationships instead of treating JSONL as a flat log. It evaluates results, permissions, decision quality, validation, repeated Bash work, context usage, and calls that could safely have run in parallel. Recommendations require session evidence; a single occurrence is not presented as a general trend.
