@@ -38,6 +38,7 @@ export interface AgentUsage {
 export interface AgentProgress {
   actions: string[];
   activeTools: string[];
+  transcript: string;
   usage: AgentUsage;
   durationMs: number;
   toolCount: number;
