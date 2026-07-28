@@ -57,9 +57,12 @@ export function formatDuration(ms: number): string {
 
 // ─── Event stream processing ───────────────────────────────────────────────────
 
+type StreamEntry =
+  | { type: "status"; text: string }
+  | { type: "tool"; id: string; name: string; detail: string; done: boolean; failed: boolean };
+
 interface StreamState {
-  actions: string[];
-  activeTools: string[];
+  entries: StreamEntry[];
   usage: AgentUsage;
   output: string;
   model?: string;
@@ -73,9 +76,22 @@ interface StreamState {
 
 /** Builds the progress snapshot passed to `onUpdate`. */
 function snapshot(state: StreamState, durationMs: number): AgentProgress {
+  const actions: string[] = [];
+  const activeTools: string[] = [];
+  for (const e of state.entries) {
+    if (e.type === "status") {
+      actions.push(e.text);
+    } else {
+      const label = e.done
+        ? `  [${e.failed ? "XX" : "OK"}] ${e.name}${e.detail ? " | " + e.detail : ""}`
+        : `  [..] TOOL ${e.name}${e.detail ? " | " + e.detail : ""}`;
+      actions.push(label);
+      if (!e.done) activeTools.push(label);
+    }
+  }
   return {
-    actions: state.actions,
-    activeTools: [...state.activeTools],
+    actions,
+    activeTools,
     usage: { ...state.usage },
     durationMs,
     toolCount: state.toolCount,
@@ -188,8 +204,11 @@ function processEvent(
           actionLine = "WRITING";
       }
 
-      if (actionLine && state.actions[state.actions.length - 1] !== actionLine) {
-        state.actions.push(actionLine);
+      if (actionLine) {
+        const last = state.entries[state.entries.length - 1];
+        if (!last || last.type !== "status" || last.text !== actionLine) {
+          state.entries.push({ type: "status", text: actionLine });
+        }
       }
       onUpdate?.(snapshot(state, elapsed));
       break;
@@ -197,11 +216,9 @@ function processEvent(
 
     // ── Tool start ──
     case "tool_execution_start": {
-      const { toolName, args } = event;
+      const { toolCallId, toolName, args } = event;
       const detail = describeToolArgs(args);
-      const actionLine = `TOOL ${toolName}${detail ? " | " + detail : ""}`;
-      state.actions.push(actionLine);
-      state.activeTools.push(actionLine);
+      state.entries.push({ type: "tool", id: toolCallId, name: toolName, detail, done: false, failed: false });
       state.toolCount++;
       onUpdate?.(snapshot(state, elapsed));
       break;
@@ -209,11 +226,13 @@ function processEvent(
 
     // ── Tool end ──
     case "tool_execution_end": {
-      const { toolName, isError } = event;
-      const idx = state.activeTools.findIndex(a => a.includes(`TOOL ${toolName}`));
-      if (idx !== -1) state.activeTools.splice(idx, 1);
+      const { toolCallId, isError } = event;
+      const entry = state.entries.find(e => e.type === "tool" && e.id === toolCallId);
+      if (entry && entry.type === "tool") {
+        entry.done = true;
+        entry.failed = isError;
+      }
       if (isError) state.toolFailCount++;
-      state.actions.push(`${isError ? "FAILED" : "DONE"} ${toolName}`);
       onUpdate?.(snapshot(state, elapsed));
       break;
     }
@@ -245,7 +264,7 @@ function processEvent(
       for (const part of msg.content ?? []) {
         if (part.type === "text" && part.text) {
           const truncated = part.text.length > 100 ? `${part.text.slice(0, 100)}...` : part.text;
-          state.actions.push(`TEXT ${truncated}`);
+          state.entries.push({ type: "status", text: `TEXT ${truncated}` });
           onUpdate?.(snapshot(state, elapsed));
         }
       }
@@ -324,8 +343,7 @@ export async function runAgent(
   };
 
   const state: StreamState = {
-    actions: [],
-    activeTools: [],
+    entries: [],
     usage: { ...result.usage },
     output: "",
     thinkingText: "",
@@ -429,7 +447,13 @@ export async function runAgent(
     result.usage = { ...state.usage };
     result.model = state.model || result.model;
     result.errorMessage = state.errorMessage;
-    result.actions = state.actions;
+    result.actions = state.entries.map(e => {
+      if (e.type === "status") return e.text;
+      const label = e.done
+        ? `  [${e.failed ? "XX" : "OK"}] ${e.name}${e.detail ? " | " + e.detail : ""}`
+        : `  [..] TOOL ${e.name}${e.detail ? " | " + e.detail : ""}`;
+      return label;
+    });
     result.durationMs = Date.now() - startTime;
     result.toolCount = state.toolCount;
     result.toolFailCount = state.toolFailCount;
