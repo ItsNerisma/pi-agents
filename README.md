@@ -245,8 +245,8 @@ Locate the relevant flow and return concise file and symbol references. Do not m
 | `description` | yes | Routing guidance shown to models and users. |
 | `tools` | no | Explicit allow-list. Omission grants defaults including `bash`; explicit lists are safer. |
 | `skills` | no | Skill names advertised to this agent. Project skills are always included and de-duplicated. |
-| `model` | no | `provider/model` or a bare model ID. |
-| `thinkingLevel` | no | Reasoning level supported by the selected model. |
+| `model` | no | `provider/model` or a bare model ID. Omitted: current model unchanged. |
+| `thinkingLevel` | no | Reasoning level supported by the selected model. Omitted: current level unchanged. |
 | `useAgentFile` | no | Append the current directory's `AGENTS.md` when `true`. |
 | `delegate` | no | Agent names this agent may delegate to. The `delegate` tool is added automatically. |
 
