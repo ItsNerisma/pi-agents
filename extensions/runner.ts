@@ -58,11 +58,12 @@ export function formatDuration(ms: number): string {
 // ─── Event stream processing ───────────────────────────────────────────────────
 
 type StreamEntry =
-  | { type: "status"; text: string }
-  | { type: "tool"; id: string; name: string; detail: string; done: boolean; failed: boolean };
+  | { type: "text"; text: string }
+  | { type: "tool"; id: string; name: string; detail: string; done: boolean; failed: boolean; result?: string };
 
 interface StreamState {
   entries: StreamEntry[];
+  textAcc: string;
   usage: AgentUsage;
   output: string;
   model?: string;
@@ -78,20 +79,41 @@ interface StreamState {
 function snapshot(state: StreamState, durationMs: number): AgentProgress {
   const actions: string[] = [];
   const activeTools: string[] = [];
+  const transcriptLines: string[] = [];
+  let lastWasTool = false;
   for (const e of state.entries) {
-    if (e.type === "status") {
-      actions.push(e.text);
+    if (e.type === "text") {
+      const truncated = e.text.length > 100 ? `${e.text.slice(0, 100)}...` : e.text;
+      actions.push(truncated);
+      if (lastWasTool && transcriptLines.length > 0) transcriptLines.push("");
+      transcriptLines.push(e.text);
+      lastWasTool = false;
     } else {
       const label = e.done
         ? `  [${e.failed ? "XX" : "OK"}] ${e.name}${e.detail ? " | " + e.detail : ""}`
         : `  [..] TOOL ${e.name}${e.detail ? " | " + e.detail : ""}`;
       actions.push(label);
       if (!e.done) activeTools.push(label);
+      const marker = e.done ? (e.failed ? "✗" : "✓") : "…";
+      const verb = e.done ? "" : " TOOL";
+      transcriptLines.push(`  [${marker}]${verb} ${e.name}${e.detail ? " | " + e.detail : ""}`);
+      if (e.done && e.result) {
+        transcriptLines.push("");
+        transcriptLines.push(e.result);
+        lastWasTool = false;
+      } else {
+        lastWasTool = true;
+      }
     }
+  }
+  if (state.textAcc) {
+    if (lastWasTool && transcriptLines.length > 0) transcriptLines.push("");
+    transcriptLines.push(state.textAcc);
   }
   return {
     actions,
     activeTools,
+    transcript: transcriptLines.join("\n"),
     usage: { ...state.usage },
     durationMs,
     toolCount: state.toolCount,
@@ -160,13 +182,11 @@ function processEvent(
       if (!ame) return;
 
       // Thinking-phase counter: incremented even after non-thinking content
-      // (otherwise thinkingPhases stays stuck at 1)
       if (ame.type === "thinking_start") {
         state.thinkingPhases++;
       }
 
       // Ignore thinking_delta only after we've seen non-thinking content.
-      // Keep thinking_start/end so the UI shows "thinking…" and the counter works.
       if (state.hasSeenNonThinking && ame.type === "thinking_delta") {
         return;
       }
@@ -181,41 +201,27 @@ function processEvent(
         state.hasSeenNonThinking = true;
       }
 
-      // Activity line (discriminated by ame.type)
-      let actionLine: string;
-      switch (ame.type) {
-        case "thinking_delta":
-          state.thinkingText += ame.delta ?? "";
-          actionLine = "THINKING";
-          break;
-        case "thinking_start":
-        case "thinking_end":
-          actionLine = "THINKING";
-          break;
-        case "text_delta":
-        case "text_start":
-          actionLine = "WRITING";
-          break;
-        case "toolcall_delta":
-        case "toolcall_start":
-          actionLine = ""; // hidden: the real tool name arrives in tool_execution_start
-          break;
-        default:
-          actionLine = "WRITING";
+      // Accumulate thinking text but skip in transcript
+      if (ame.type === "thinking_delta") {
+        state.thinkingText += ame.delta ?? "";
       }
 
-      if (actionLine) {
-        const last = state.entries[state.entries.length - 1];
-        if (!last || last.type !== "status" || last.text !== actionLine) {
-          state.entries.push({ type: "status", text: actionLine });
-        }
+      // Accumulate real text deltas for the transcript
+      if (ame.type === "text_delta") {
+        state.textAcc += ame.delta ?? "";
       }
+
       onUpdate?.(snapshot(state, elapsed));
       break;
     }
 
     // ── Tool start ──
     case "tool_execution_start": {
+      // Flush any accumulated agent text before the tool
+      if (state.textAcc) {
+        state.entries.push({ type: "text", text: state.textAcc });
+        state.textAcc = "";
+      }
       const { toolCallId, toolName, args } = event;
       const detail = describeToolArgs(args);
       state.entries.push({ type: "tool", id: toolCallId, name: toolName, detail, done: false, failed: false });
@@ -226,11 +232,24 @@ function processEvent(
 
     // ── Tool end ──
     case "tool_execution_end": {
+      // Flush any accumulated agent text before resolving the tool
+      if (state.textAcc) {
+        state.entries.push({ type: "text", text: state.textAcc });
+        state.textAcc = "";
+      }
       const { toolCallId, isError } = event;
       const entry = state.entries.find(e => e.type === "tool" && e.id === toolCallId);
       if (entry && entry.type === "tool") {
         entry.done = true;
         entry.failed = isError;
+        // Extract result text for the transcript
+        const result = event.result as { content?: Array<{ type: string; text?: string }> } | undefined;
+        if (result?.content) {
+          const texts = result.content
+            .filter((c): c is { type: "text"; text: string } => c.type === "text" && typeof c.text === "string")
+            .map(c => c.text);
+          if (texts.length) entry.result = texts.join("\n");
+        }
       }
       if (isError) state.toolFailCount++;
       onUpdate?.(snapshot(state, elapsed));
@@ -258,16 +277,21 @@ function processEvent(
       if (!state.model && msg.model) state.model = msg.model;
       if (msg.errorMessage) state.errorMessage = msg.errorMessage;
 
-      // Reset thinking accumulator for the next message
-      state.thinkingText = "";
-
-      for (const part of msg.content ?? []) {
-        if (part.type === "text" && part.text) {
-          const truncated = part.text.length > 100 ? `${part.text.slice(0, 100)}...` : part.text;
-          state.entries.push({ type: "status", text: `TEXT ${truncated}` });
-          onUpdate?.(snapshot(state, elapsed));
+      // Flush accumulated text as a definitive entry, or use message content
+      if (state.textAcc) {
+        state.entries.push({ type: "text", text: state.textAcc });
+        state.textAcc = "";
+      } else {
+        for (const part of msg.content ?? []) {
+          if (part.type === "text" && part.text) {
+            state.entries.push({ type: "text", text: part.text });
+          }
         }
       }
+
+      // Reset thinking accumulator for the next message
+      state.thinkingText = "";
+      onUpdate?.(snapshot(state, elapsed));
       break;
     }
 
@@ -344,6 +368,7 @@ export async function runAgent(
 
   const state: StreamState = {
     entries: [],
+    textAcc: "",
     usage: { ...result.usage },
     output: "",
     thinkingText: "",
@@ -448,11 +473,12 @@ export async function runAgent(
     result.model = state.model || result.model;
     result.errorMessage = state.errorMessage;
     result.actions = state.entries.map(e => {
-      if (e.type === "status") return e.text;
-      const label = e.done
+      if (e.type === "text") {
+        return e.text.length > 100 ? `${e.text.slice(0, 100)}...` : e.text;
+      }
+      return e.done
         ? `  [${e.failed ? "XX" : "OK"}] ${e.name}${e.detail ? " | " + e.detail : ""}`
         : `  [..] TOOL ${e.name}${e.detail ? " | " + e.detail : ""}`;
-      return label;
     });
     result.durationMs = Date.now() - startTime;
     result.toolCount = state.toolCount;

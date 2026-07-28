@@ -112,9 +112,8 @@ export function registerDelegateTool(
         signal,
         onUpdate
           ? (progress) => {
-              const latestAction = progress.actions[progress.actions.length - 1] || "";
               onUpdate({
-                content: [{ type: "text", text: latestAction }],
+                content: [{ type: "text", text: progress.transcript }],
                 details: {
                   agent: agent.name,
                   task: params.task,
@@ -189,15 +188,10 @@ export function registerDelegateTool(
 
       // ── Live status ──
       if (isPartial) {
-        const actions = details?.actions ?? [];
-        const allActions = actions.length > 0
-          ? actions.map(a => `  ${a}`).join("\n")
-          : "  ...";
-
         let text = "\n" +
           theme.fg("toolTitle", theme.bold(`DELEGATE TO ${details?.agent ?? "?"}`)) +
           " " + theme.fg("dim", `[${status}]`) + "\n\n" +
-          theme.fg("toolOutput", allActions);
+          theme.fg("toolOutput", outputText || "  ...");
 
         if (details?.thinkingText) {
           const truncatedThinking = details.thinkingText.length > 500
