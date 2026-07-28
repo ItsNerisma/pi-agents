@@ -58,7 +58,7 @@ export function formatDuration(ms: number): string {
 // ─── Event stream processing ───────────────────────────────────────────────────
 
 type StreamEntry =
-  | { type: "text"; text: string }
+  | { type: "status"; text: string }
   | { type: "tool"; id: string; name: string; detail: string; done: boolean; failed: boolean };
 
 interface StreamState {
@@ -94,10 +94,6 @@ function snapshot(state: StreamState, durationMs: number): AgentProgress {
         : `  [..] TOOL ${e.name}${e.detail ? " | " + e.detail : ""}`;
       actions.push(label);
       if (!e.done) activeTools.push(label);
-      const marker = e.done ? (e.failed ? "✗" : "✓") : "…";
-      const verb = e.done ? "" : " TOOL";
-      transcriptLines.push(`  [${marker}]${verb} ${e.name}${e.detail ? " | " + e.detail : ""}`);
-      lastWasTool = true;
     }
   }
   if (state.textAcc) {
@@ -236,6 +232,14 @@ function processEvent(
       if (entry && entry.type === "tool") {
         entry.done = true;
         entry.failed = isError;
+        // Extract result text for the transcript
+        const result = event.result as { content?: Array<{ type: string; text?: string }> } | undefined;
+        if (result?.content) {
+          const texts = result.content
+            .filter((c): c is { type: "text"; text: string } => c.type === "text" && typeof c.text === "string")
+            .map(c => c.text);
+          if (texts.length) entry.result = texts.join("\n");
+        }
       }
       if (isError) state.toolFailCount++;
       onUpdate?.(snapshot(state, elapsed));
