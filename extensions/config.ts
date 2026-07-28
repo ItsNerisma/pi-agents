@@ -35,7 +35,11 @@ export function readConfig(): AgentsConfig {
 /** Writes the config file, creating ~/.pi if needed. */
 function writeConfig(config: AgentsConfig): void {
   fs.mkdirSync(configDir(), { recursive: true });
-  fs.writeFileSync(configPath(), JSON.stringify(config, null, 2) + "\n", "utf-8");
+  fs.writeFileSync(
+    configPath(),
+    JSON.stringify(config, null, 2) + "\n",
+    "utf-8",
+  );
 }
 
 /**

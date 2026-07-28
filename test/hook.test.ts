@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -8,7 +15,9 @@ import ts from "typescript";
 
 const compiled = mkdtempSync(join(process.cwd(), ".hook-test-"));
 compileDirectory(join(process.cwd(), "extensions"), compiled);
-const { registerHooks } = await import(pathToFileURL(join(compiled, "hook.js")).href);
+const { registerHooks } = await import(
+  pathToFileURL(join(compiled, "hook.js")).href
+);
 rmSync(compiled, { recursive: true, force: true });
 
 interface ActiveAgentState {
@@ -18,7 +27,10 @@ interface ActiveAgentState {
   savedThinkingLevel?: string;
 }
 
-function compileDirectory(sourceDirectory: string, targetDirectory: string): void {
+function compileDirectory(
+  sourceDirectory: string,
+  targetDirectory: string,
+): void {
   mkdirSync(targetDirectory, { recursive: true });
   for (const entry of readdirSync(sourceDirectory, { withFileTypes: true })) {
     const sourcePath = join(sourceDirectory, entry.name);
@@ -28,9 +40,15 @@ function compileDirectory(sourceDirectory: string, targetDirectory: string): voi
     }
     if (!entry.isFile() || !entry.name.endsWith(".ts")) continue;
     const output = ts.transpileModule(readFileSync(sourcePath, "utf8"), {
-      compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+      compilerOptions: {
+        module: ts.ModuleKind.ESNext,
+        target: ts.ScriptTarget.ES2022,
+      },
     }).outputText;
-    writeFileSync(join(targetDirectory, entry.name.replace(/\.ts$/, ".js")), output);
+    writeFileSync(
+      join(targetDirectory, entry.name.replace(/\.ts$/, ".js")),
+      output,
+    );
   }
 }
 
@@ -38,7 +56,9 @@ test("activates the default agent when a new session starts", async () => {
   const cwd = mkdtempSync(join(tmpdir(), "pi-agents-hook-"));
   const agentDirectory = join(cwd, ".pi", "agents");
   mkdirSync(agentDirectory, { recursive: true });
-  writeFileSync(join(agentDirectory, "default-agent.md"), `---
+  writeFileSync(
+    join(agentDirectory, "default-agent.md"),
+    `---
 name: default-agent
 description: Default test agent
 tools:
@@ -47,7 +67,8 @@ thinkingLevel: high
 ---
 
 Default prompt.
-`);
+`,
+  );
 
   const previousAgentDirectory = process.env.PI_CODING_AGENT_DIR;
   process.env.PI_CODING_AGENT_DIR = join(cwd, "missing-global-agents");
@@ -55,7 +76,8 @@ Default prompt.
   let activeAgent: ActiveAgentState | null = null;
   let tools = ["read", "bash"];
   let thinkingLevel = "medium";
-  let sessionStart: ((event: { reason: string }, context: any) => Promise<void>) | undefined;
+  let sessionStart:
+    ((event: { reason: string }, context: any) => Promise<void>) | undefined;
   const statuses: string[] = [];
   const pi = {
     getActiveTools: () => tools,
@@ -63,8 +85,12 @@ Default prompt.
     on(event: string, handler: typeof sessionStart) {
       if (event === "session_start") sessionStart = handler;
     },
-    setActiveTools: (next: string[]) => { tools = next; },
-    setThinkingLevel: (next: string) => { thinkingLevel = next; },
+    setActiveTools: (next: string[]) => {
+      tools = next;
+    },
+    setThinkingLevel: (next: string) => {
+      thinkingLevel = next;
+    },
   };
   const context = {
     cwd,
@@ -79,7 +105,9 @@ Default prompt.
   try {
     registerHooks(pi as never, () => activeAgent?.name ?? null, {
       autoActivateAgentName: "default-agent",
-      setActiveAgentState: (state) => { activeAgent = state; },
+      setActiveAgentState: (state) => {
+        activeAgent = state;
+      },
     });
 
     await sessionStart?.({ reason: "new" }, context);
@@ -89,7 +117,8 @@ Default prompt.
     assert.equal(thinkingLevel, "high");
     assert.deepEqual(statuses, ["Agent: default-agent"]);
   } finally {
-    if (previousAgentDirectory === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    if (previousAgentDirectory === undefined)
+      delete process.env.PI_CODING_AGENT_DIR;
     else process.env.PI_CODING_AGENT_DIR = previousAgentDirectory;
     rmSync(cwd, { recursive: true, force: true });
   }

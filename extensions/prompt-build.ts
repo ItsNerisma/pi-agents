@@ -71,14 +71,20 @@ function gitLines(cwd: string): string[] {
  * Environment block: working dir, platform, active model, tools ACTUALLY sent
  * to the provider (effective allow-list ∩ active set), git snapshot.
  */
-export function environmentSnippet(cwd: string, modelId?: string, tools?: string[]): string {
+export function environmentSnippet(
+  cwd: string,
+  modelId?: string,
+  tools?: string[],
+): string {
   const lines = [
     `Working directory: ${cwd}`,
     `Platform: ${process.platform} (${os.release()})`,
   ];
   if (modelId) lines.push(`Model: ${modelId}`);
   if (tools?.length) {
-    lines.push(`Available tools (authoritative — only these are callable): ${tools.join(", ")}`);
+    lines.push(
+      `Available tools (authoritative — only these are callable): ${tools.join(", ")}`,
+    );
   }
   lines.push(...gitLines(cwd));
   return `\n\n<environment>\n${lines.join("\n")}\n</environment>`;
@@ -163,7 +169,11 @@ export function skillsSnippet(
 // ─── Delegates ───────────────────────────────────────────────────────────────
 
 function xmlEscape(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 /**
@@ -238,7 +248,10 @@ function wrapProjectContext(blocks: string[]): string {
  * from systemPromptOptions.contextFiles. Falls back to cwd/AGENTS.md when the
  * shape is unusable. Returns "" when nothing is available.
  */
-export function contextFilesSnippet(contextFiles: unknown, cwd: string): string {
+export function contextFilesSnippet(
+  contextFiles: unknown,
+  cwd: string,
+): string {
   const blocks: string[] = [];
   const seenPaths = new Set<string>();
 
@@ -270,9 +283,13 @@ export function contextFilesSnippet(contextFiles: unknown, cwd: string): string 
     if (local) {
       // loadAgentFileFromCwd already wraps in <project_context>, extract the
       // inner block to avoid double-wrapping.
-      const innerMatch = local.match(/<project_instructions[^>]*>([\s\S]*?)<\/project_instructions>/);
+      const innerMatch = local.match(
+        /<project_instructions[^>]*>([\s\S]*?)<\/project_instructions>/,
+      );
       if (innerMatch) {
-        blocks.push(`<project_instructions path="${localPath}">${innerMatch[1]}</project_instructions>`);
+        blocks.push(
+          `<project_instructions path="${localPath}">${innerMatch[1]}</project_instructions>`,
+        );
       }
     }
   }
@@ -313,7 +330,10 @@ export function composeAgentPrompt(
   const { snippet, missing } = skillsSnippet(agent.skills, spo.skills);
   out += snippet;
 
-  const { snippet: delSnippet, missing: missingDelegates } = delegatesSnippet(agent.delegate, cwd);
+  const { snippet: delSnippet, missing: missingDelegates } = delegatesSnippet(
+    agent.delegate,
+    cwd,
+  );
   out += delSnippet;
 
   if (agent.useAgentFile) {

@@ -70,6 +70,10 @@ One line = one distinct change.
 
 ## Pre-commit checks
 
-- `npm run typecheck` must pass (`tsc --noEmit`)
-- `npm test` must pass (Node test suite)
-- The diff contains only intentional changes
+A `.git/hooks/pre-commit` hook runs automatically before each commit:
+
+- `npm run lint` — Prettier format check
+- `npm run typecheck` — `tsc --noEmit`
+- `npm test` — Node test suite
+
+All three must pass. Fix formatting with `npm run format`.

@@ -3,7 +3,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Type } from "typebox";
-import { type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import {
+  type ExtensionAPI,
+  type ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import {
   AGENT_NAME_PATTERN,
   DEFAULT_AGENT_TOOLS,
@@ -13,7 +16,11 @@ import {
   type AgentDiagnostic,
 } from "./registry.js";
 
-const ScopeSchema = Type.Union([Type.Literal("global"), Type.Literal("project"), Type.Literal("bundled")]);
+const ScopeSchema = Type.Union([
+  Type.Literal("global"),
+  Type.Literal("project"),
+  Type.Literal("bundled"),
+]);
 type AgentScope = "global" | "project" | "bundled";
 const CandidateSchema = Type.Object({
   scope: ScopeSchema,
@@ -45,7 +52,8 @@ interface ValidationResult {
 
 function agentPath(cwd: string, scope: AgentScope, name: string): string {
   if (!AGENT_NAME_PATTERN.test(name)) throw new Error("Invalid agent name");
-  if (scope === "bundled") return path.join(cwd, "agents", `${name.toUpperCase()}.md`);
+  if (scope === "bundled")
+    return path.join(cwd, "agents", `${name.toUpperCase()}.md`);
   const dirs = getAgentDirectories(cwd);
   return path.join(scope === "global" ? dirs.user : dirs.project, `${name}.md`);
 }
@@ -69,7 +77,9 @@ function resolveModel(ctx: ExtensionContext, spec: string) {
 function formatValidation(result: ValidationResult): string {
   const lines = [`${result.valid ? "VALID" : "INVALID"}: ${result.targetPath}`];
   for (const diagnostic of result.diagnostics) {
-    lines.push(`${diagnostic.severity === "error" ? "ERROR" : "WARNING"} [${diagnostic.code}]: ${diagnostic.message}`);
+    lines.push(
+      `${diagnostic.severity === "error" ? "ERROR" : "WARNING"} [${diagnostic.code}]: ${diagnostic.message}`,
+    );
   }
   if (!result.diagnostics.length) lines.push("No diagnostics.");
   return lines.join("\n");
@@ -84,7 +94,9 @@ export function registerArchitectTools(pi: ExtensionAPI): void {
   const architectToolNames = new Set(["agent_validate", "agent_capabilities"]);
   pi.on("session_start", () => {
     try {
-      pi.setActiveTools(pi.getActiveTools().filter((name) => !architectToolNames.has(name)));
+      pi.setActiveTools(
+        pi.getActiveTools().filter((name) => !architectToolNames.has(name)),
+      );
     } catch {
       // Tool activation is re-applied by /agent; failing here only adds clutter.
     }
@@ -94,19 +106,26 @@ export function registerArchitectTools(pi: ExtensionAPI): void {
   // small catalog for validation and agent_capabilities without reloading any
   // extension or scanning package internals.
   pi.on("before_agent_start", (event) => {
-    const skills = (event as { systemPromptOptions?: { skills?: unknown } }).systemPromptOptions?.skills;
+    const skills = (event as { systemPromptOptions?: { skills?: unknown } })
+      .systemPromptOptions?.skills;
     if (!Array.isArray(skills)) return;
     skillInventoryKnown = true;
     skillInventory = skills
-      .filter((skill): skill is Record<string, unknown> => !!skill && typeof skill === "object")
+      .filter(
+        (skill): skill is Record<string, unknown> =>
+          !!skill && typeof skill === "object",
+      )
       .filter((skill) => typeof skill.name === "string")
       .map((skill) => ({
         name: skill.name as string,
-        description: typeof skill.description === "string" ? skill.description : undefined,
-        filePath: typeof skill.filePath === "string" ? skill.filePath : undefined,
+        description:
+          typeof skill.description === "string" ? skill.description : undefined,
+        filePath:
+          typeof skill.filePath === "string" ? skill.filePath : undefined,
         scope:
-          typeof (skill.sourceInfo as { scope?: unknown } | undefined)?.scope === "string"
-            ? ((skill.sourceInfo as { scope: string }).scope)
+          typeof (skill.sourceInfo as { scope?: unknown } | undefined)
+            ?.scope === "string"
+            ? (skill.sourceInfo as { scope: string }).scope
             : undefined,
       }));
   });
@@ -115,11 +134,22 @@ export function registerArchitectTools(pi: ExtensionAPI): void {
     ctx: ExtensionContext,
     params: { scope: AgentScope; name: string },
   ): ValidationResult {
-    const source = params.scope === "bundled" ? "system" : params.scope === "global" ? "user" : "project";
+    const source =
+      params.scope === "bundled"
+        ? "system"
+        : params.scope === "global"
+          ? "user"
+          : "project";
     if (!AGENT_NAME_PATTERN.test(params.name)) {
       return {
         valid: false,
-        diagnostics: [{ severity: "error", code: "invalid_target_name", message: `Target name must match ${AGENT_NAME_PATTERN}` }],
+        diagnostics: [
+          {
+            severity: "error",
+            code: "invalid_target_name",
+            message: `Target name must match ${AGENT_NAME_PATTERN}`,
+          },
+        ],
         targetPath: "(invalid agent name)",
       };
     }
@@ -129,22 +159,44 @@ export function registerArchitectTools(pi: ExtensionAPI): void {
     const fileDiagnostics: AgentDiagnostic[] = [];
     try {
       if (!fs.existsSync(filePath)) {
-        addDiagnostic(fileDiagnostics, "error", "agent_missing", `Agent does not exist: ${filePath}`);
+        addDiagnostic(
+          fileDiagnostics,
+          "error",
+          "agent_missing",
+          `Agent does not exist: ${filePath}`,
+        );
       } else if (fs.lstatSync(filePath).isSymbolicLink()) {
-        addDiagnostic(fileDiagnostics, "error", "symlink_agent", "Refusing to read an agent file symlink");
+        addDiagnostic(
+          fileDiagnostics,
+          "error",
+          "symlink_agent",
+          "Refusing to read an agent file symlink",
+        );
       } else if (!fs.lstatSync(filePath).isFile()) {
-        addDiagnostic(fileDiagnostics, "error", "invalid_agent", "Agent is not a regular file");
+        addDiagnostic(
+          fileDiagnostics,
+          "error",
+          "invalid_agent",
+          "Agent is not a regular file",
+        );
       } else {
         markdown = fs.readFileSync(filePath, "utf-8");
       }
     } catch (error) {
-      addDiagnostic(fileDiagnostics, "error", "unreadable_agent", error instanceof Error ? error.message : String(error));
+      addDiagnostic(
+        fileDiagnostics,
+        "error",
+        "unreadable_agent",
+        error instanceof Error ? error.message : String(error),
+      );
     }
     const parsed = parseAgentMarkdown(markdown, source, filePath);
     const diagnostics = [...fileDiagnostics, ...parsed.diagnostics];
     const agent = parsed.agent;
     if (agent) {
-      const configuredTools = new Set(pi.getAllTools().map((tool) => tool.name));
+      const configuredTools = new Set(
+        pi.getAllTools().map((tool) => tool.name),
+      );
       if (!agent.tools?.length) {
         addDiagnostic(
           diagnostics,
@@ -155,19 +207,36 @@ export function registerArchitectTools(pi: ExtensionAPI): void {
       } else {
         for (const tool of agent.tools) {
           if (!configuredTools.has(tool)) {
-            addDiagnostic(diagnostics, "error", "unknown_tool", `Unknown or unloaded tool: ${tool}`);
+            addDiagnostic(
+              diagnostics,
+              "error",
+              "unknown_tool",
+              `Unknown or unloaded tool: ${tool}`,
+            );
           }
         }
       }
 
       if (Array.isArray(agent.skills) && agent.skills.length) {
         if (!skillInventoryKnown) {
-          addDiagnostic(diagnostics, "warning", "skills_unavailable", "Runtime skill inventory is unavailable");
+          addDiagnostic(
+            diagnostics,
+            "warning",
+            "skills_unavailable",
+            "Runtime skill inventory is unavailable",
+          );
         } else {
-          const knownSkills = new Set(skillInventory.map((skill) => skill.name));
+          const knownSkills = new Set(
+            skillInventory.map((skill) => skill.name),
+          );
           for (const skill of agent.skills) {
             if (!knownSkills.has(skill)) {
-              addDiagnostic(diagnostics, "error", "unknown_skill", `Unknown skill: ${skill}`);
+              addDiagnostic(
+                diagnostics,
+                "error",
+                "unknown_skill",
+                `Unknown skill: ${skill}`,
+              );
             }
           }
         }
@@ -177,24 +246,45 @@ export function registerArchitectTools(pi: ExtensionAPI): void {
         const knownAgents = new Set(discoverAgents(ctx.cwd).map((a) => a.name));
         for (const name of agent.delegate) {
           if (!knownAgents.has(name)) {
-            addDiagnostic(diagnostics, "error", "unknown_delegate", `Unknown delegate target: "${name}"`);
+            addDiagnostic(
+              diagnostics,
+              "error",
+              "unknown_delegate",
+              `Unknown delegate target: "${name}"`,
+            );
           }
         }
       }
 
       if (!agent.model) {
-        addDiagnostic(diagnostics, "warning", "inherited_model", "No model declared; the active/default model will be inherited");
+        addDiagnostic(
+          diagnostics,
+          "warning",
+          "inherited_model",
+          "No model declared; the active/default model will be inherited",
+        );
       } else {
         const model = resolveModel(ctx, agent.model);
         if (!model) {
-          addDiagnostic(diagnostics, "error", "unknown_model", `Unknown model: ${agent.model}`);
+          addDiagnostic(
+            diagnostics,
+            "error",
+            "unknown_model",
+            `Unknown model: ${agent.model}`,
+          );
         } else {
           if (!ctx.modelRegistry.hasConfiguredAuth(model)) {
-            addDiagnostic(diagnostics, "error", "model_auth", `No configured authentication for model: ${agent.model}`);
+            addDiagnostic(
+              diagnostics,
+              "error",
+              "model_auth",
+              `No configured authentication for model: ${agent.model}`,
+            );
           }
           const level = agent.thinkingLevel;
           if (level && level !== "off") {
-            const mapping = model.thinkingLevelMap as Record<string, unknown> | undefined;
+            const mapping = model.thinkingLevelMap as
+              Record<string, unknown> | undefined;
             if (!model.reasoning || mapping?.[level] === null) {
               addDiagnostic(
                 diagnostics,
@@ -220,17 +310,37 @@ export function registerArchitectTools(pi: ExtensionAPI): void {
     const globalPath = path.join(dirs.user, `${params.name}.md`);
     const projectPath = path.join(dirs.project, `${params.name}.md`);
     if (params.scope === "project" && fs.existsSync(globalPath)) {
-      addDiagnostic(diagnostics, "warning", "shadows_global", `Project agent will shadow ${globalPath}`);
+      addDiagnostic(
+        diagnostics,
+        "warning",
+        "shadows_global",
+        `Project agent will shadow ${globalPath}`,
+      );
     }
     if (params.scope === "global" && fs.existsSync(projectPath)) {
-      addDiagnostic(diagnostics, "warning", "shadowed_by_project", `Global agent is shadowed in this project by ${projectPath}`);
+      addDiagnostic(
+        diagnostics,
+        "warning",
+        "shadowed_by_project",
+        `Global agent is shadowed in this project by ${projectPath}`,
+      );
     }
     if (params.scope === "bundled") {
       if (fs.existsSync(globalPath)) {
-        addDiagnostic(diagnostics, "warning", "shadowed_by_global", `Bundled agent is shadowed by ${globalPath}`);
+        addDiagnostic(
+          diagnostics,
+          "warning",
+          "shadowed_by_global",
+          `Bundled agent is shadowed by ${globalPath}`,
+        );
       }
       if (fs.existsSync(projectPath)) {
-        addDiagnostic(diagnostics, "warning", "shadowed_by_project", `Bundled agent is shadowed in this project by ${projectPath}`);
+        addDiagnostic(
+          diagnostics,
+          "warning",
+          "shadowed_by_project",
+          `Bundled agent is shadowed in this project by ${projectPath}`,
+        );
       }
     }
 
@@ -257,7 +367,8 @@ export function registerArchitectTools(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "agent_validate",
     label: "Validate agent",
-    description: "Validates a saved global or project agent definition without writing files.",
+    description:
+      "Validates a saved global or project agent definition without writing files.",
     promptSnippet: "Validate an agent after writing or editing it",
     promptGuidelines: [
       "Use agent_validate after writing an agent or correcting a validation failure.",
@@ -277,9 +388,13 @@ export function registerArchitectTools(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "agent_capabilities",
     label: "Agent capabilities",
-    description: "Lists the tools, authenticated models, skills, and agents currently available to pi-agents.",
-    promptSnippet: "Inspect actual pi tools, models, skills, and existing agents before designing an agent",
-    promptGuidelines: ["Use this instead of inventing tool, model, skill, or agent names."],
+    description:
+      "Lists the tools, authenticated models, skills, and agents currently available to pi-agents.",
+    promptSnippet:
+      "Inspect actual pi tools, models, skills, and existing agents before designing an agent",
+    promptGuidelines: [
+      "Use this instead of inventing tool, model, skill, or agent names.",
+    ],
     parameters: Type.Object({
       category: Type.Optional(
         Type.Union([
@@ -290,15 +405,19 @@ export function registerArchitectTools(pi: ExtensionAPI): void {
           Type.Literal("agents"),
         ]),
       ),
-      query: Type.Optional(Type.String({ description: "Optional case-insensitive name filter" })),
+      query: Type.Optional(
+        Type.String({ description: "Optional case-insensitive name filter" }),
+      ),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const category = params.category ?? "all";
       const query = params.query?.toLowerCase();
-      const matches = (value: string) => !query || value.toLowerCase().includes(query);
+      const matches = (value: string) =>
+        !query || value.toLowerCase().includes(query);
       const activeTools = new Set(pi.getActiveTools());
 
-      const tools = pi.getAllTools()
+      const tools = pi
+        .getAllTools()
         .filter((tool) => matches(tool.name))
         .map((tool) => ({
           name: tool.name,
@@ -308,7 +427,8 @@ export function registerArchitectTools(pi: ExtensionAPI): void {
           scope: tool.sourceInfo.scope,
           path: tool.sourceInfo.path,
         }));
-      const models = ctx.modelRegistry.getAll()
+      const models = ctx.modelRegistry
+        .getAll()
         .filter((model) => ctx.modelRegistry.hasConfiguredAuth(model))
         .filter((model) => matches(`${model.provider}/${model.id}`))
         .map((model) => ({
@@ -317,7 +437,9 @@ export function registerArchitectTools(pi: ExtensionAPI): void {
           reasoning: model.reasoning,
           contextWindow: model.contextWindow,
           maxTokens: model.maxTokens,
-          active: ctx.model?.provider === model.provider && ctx.model?.id === model.id,
+          active:
+            ctx.model?.provider === model.provider &&
+            ctx.model?.id === model.id,
         }));
       const skills = skillInventory.filter((skill) => matches(skill.name));
       const agents = discoverAgents(ctx.cwd)
@@ -325,7 +447,12 @@ export function registerArchitectTools(pi: ExtensionAPI): void {
         .map((agent) => ({
           name: agent.name,
           description: agent.description,
-          scope: agent.source === "user" ? "global" : agent.source === "project" ? "project" : "system",
+          scope:
+            agent.source === "user"
+              ? "global"
+              : agent.source === "project"
+                ? "project"
+                : "system",
           path: agent.filePath,
         }));
 
@@ -339,19 +466,30 @@ export function registerArchitectTools(pi: ExtensionAPI): void {
       };
       const sections: string[] = [];
       if ("tools" in details) {
-        sections.push(`Tools (${tools.length})\n${tools.map((tool) => `- ${tool.name}${tool.active ? " [active]" : ""} — ${tool.source}`).join("\n") || "(none)"}`);
+        sections.push(
+          `Tools (${tools.length})\n${tools.map((tool) => `- ${tool.name}${tool.active ? " [active]" : ""} — ${tool.source}`).join("\n") || "(none)"}`,
+        );
       }
       if ("models" in details) {
-        sections.push(`Authenticated models (${models.length})\n${models.map((model) => `- ${model.id}${model.active ? " [active]" : ""}${model.reasoning ? " [reasoning]" : ""}`).join("\n") || "(none)"}`);
+        sections.push(
+          `Authenticated models (${models.length})\n${models.map((model) => `- ${model.id}${model.active ? " [active]" : ""}${model.reasoning ? " [reasoning]" : ""}`).join("\n") || "(none)"}`,
+        );
       }
       if ("skills" in details) {
-        sections.push(`Skills (${skills.length})${skillInventoryKnown ? "" : " [inventory unavailable]"}\n${skills.map((skill) => `- ${skill.name}${skill.scope ? ` [${skill.scope}]` : ""}`).join("\n") || "(none)"}`);
+        sections.push(
+          `Skills (${skills.length})${skillInventoryKnown ? "" : " [inventory unavailable]"}\n${skills.map((skill) => `- ${skill.name}${skill.scope ? ` [${skill.scope}]` : ""}`).join("\n") || "(none)"}`,
+        );
       }
       if ("agents" in details) {
-        sections.push(`Agents (${agents.length})\n${agents.map((agent) => `- ${agent.name} [${agent.scope}] — ${agent.description}`).join("\n") || "(none)"}`);
+        sections.push(
+          `Agents (${agents.length})\n${agents.map((agent) => `- ${agent.name} [${agent.scope}] — ${agent.description}`).join("\n") || "(none)"}`,
+        );
       }
 
-      return { content: [{ type: "text", text: sections.join("\n\n") }], details };
+      return {
+        content: [{ type: "text", text: sections.join("\n\n") }],
+        details,
+      };
     },
   });
 }

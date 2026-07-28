@@ -25,7 +25,9 @@ test("parseAgentMarkdown normalizes a valid agent", () => {
 
 test("parseAgentMarkdown reports strict frontmatter diagnostics", () => {
   const parsed = parseAgentMarkdown(
-    validAgent.replace("name: reviewer", "name: Bad/Name").replace("tools:", "unknown: value\ntools:"),
+    validAgent
+      .replace("name: reviewer", "name: Bad/Name")
+      .replace("tools:", "unknown: value\ntools:"),
     "project",
     "/tmp/reviewer.md",
   );
@@ -36,8 +38,14 @@ test("parseAgentMarkdown reports strict frontmatter diagnostics", () => {
 });
 
 test("parseAgentMarkdown rejects an empty prompt", () => {
-  const parsed = parseAgentMarkdown("---\nname: empty\ndescription: Empty\n---\n", "user", "/tmp/empty.md");
-  assert.ok(parsed.diagnostics.some((diagnostic) => diagnostic.code === "empty_prompt"));
+  const parsed = parseAgentMarkdown(
+    "---\nname: empty\ndescription: Empty\n---\n",
+    "user",
+    "/tmp/empty.md",
+  );
+  assert.ok(
+    parsed.diagnostics.some((diagnostic) => diagnostic.code === "empty_prompt"),
+  );
 });
 
 test("parseAgentMarkdown handles delegate as a YAML list", () => {
@@ -78,7 +86,11 @@ delegate: [explorer, explorer, researcher]
 Act.
 `;
   const parsed = parseAgentMarkdown(md, "project", "/tmp/orchestrator.md");
-  assert.deepEqual(parsed.agent?.delegate, ["explorer", "explorer", "researcher"]);
+  assert.deepEqual(parsed.agent?.delegate, [
+    "explorer",
+    "explorer",
+    "researcher",
+  ]);
   assert.ok(parsed.diagnostics.some((d) => d.code === "duplicate_delegate"));
 });
 
@@ -93,27 +105,61 @@ test("discovers project, global and system agents with precedence", () => {
   const globalAgents = join(root, "agent-home", "agents");
   const projectAgents = join(cwd, ".pi", "agents");
   const previousDir = process.env.PI_CODING_AGENT_DIR;
-  const agent = (name: string, description: string) => `---\nname: ${name}\ndescription: ${description}\n---\n\nAct.\n`;
+  const agent = (name: string, description: string) =>
+    `---\nname: ${name}\ndescription: ${description}\n---\n\nAct.\n`;
   mkdirSync(globalAgents, { recursive: true });
   mkdirSync(projectAgents, { recursive: true });
-  writeFileSync(join(globalAgents, "agent-session-reviewer.md"), agent("agent-session-reviewer", "Global override"));
-  writeFileSync(join(globalAgents, "global-only.md"), agent("global-only", "Global"));
-  writeFileSync(join(projectAgents, "agent-session-reviewer.md"), agent("agent-session-reviewer", "Project override"));
-  writeFileSync(join(projectAgents, "local-only.md"), agent("local-only", "Local"));
+  writeFileSync(
+    join(globalAgents, "agent-session-reviewer.md"),
+    agent("agent-session-reviewer", "Global override"),
+  );
+  writeFileSync(
+    join(globalAgents, "global-only.md"),
+    agent("global-only", "Global"),
+  );
+  writeFileSync(
+    join(projectAgents, "agent-session-reviewer.md"),
+    agent("agent-session-reviewer", "Project override"),
+  );
+  writeFileSync(
+    join(projectAgents, "local-only.md"),
+    agent("local-only", "Local"),
+  );
   process.env.PI_CODING_AGENT_DIR = join(root, "agent-home");
 
   try {
     const agents = discoverAgents(cwd);
-    assert.deepEqual(agents.slice(0, 2).map(({ name, source }) => [name, source]), [
-      ["agent-session-reviewer", "project"],
-      ["local-only", "project"],
-    ]);
-    assert.equal(agents.find((item) => item.name === "global-only")?.source, "user");
-    assert.equal(agents.find((item) => item.name === "agent-session-reviewer")?.source, "project");
-    assert.equal(agents.filter((item) => item.name === "agent-session-reviewer").length, 1);
-    assert.equal(agents.find((item) => item.name === "agent-architect")?.source, "system");
-    assert.equal(agents.find((item) => item.name === "agent-architect")?.model, undefined);
-    assert.equal(agents.find((item) => item.name === "agent-architect-web")?.source, "system");
+    assert.deepEqual(
+      agents.slice(0, 2).map(({ name, source }) => [name, source]),
+      [
+        ["agent-session-reviewer", "project"],
+        ["local-only", "project"],
+      ],
+    );
+    assert.equal(
+      agents.find((item) => item.name === "global-only")?.source,
+      "user",
+    );
+    assert.equal(
+      agents.find((item) => item.name === "agent-session-reviewer")?.source,
+      "project",
+    );
+    assert.equal(
+      agents.filter((item) => item.name === "agent-session-reviewer").length,
+      1,
+    );
+    assert.equal(
+      agents.find((item) => item.name === "agent-architect")?.source,
+      "system",
+    );
+    assert.equal(
+      agents.find((item) => item.name === "agent-architect")?.model,
+      undefined,
+    );
+    assert.equal(
+      agents.find((item) => item.name === "agent-architect-web")?.source,
+      "system",
+    );
   } finally {
     if (previousDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
     else process.env.PI_CODING_AGENT_DIR = previousDir;

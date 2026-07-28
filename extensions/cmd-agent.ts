@@ -12,10 +12,19 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import { DynamicBorder } from "@earendil-works/pi-coding-agent";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import { Container, type SelectItem, type AutocompleteItem, SelectList, Text } from "@earendil-works/pi-tui";
+import {
+  Container,
+  type SelectItem,
+  type AutocompleteItem,
+  SelectList,
+  Text,
+} from "@earendil-works/pi-tui";
 import { discoverAgents } from "./registry.js";
 import { applyAgent, persistActiveAgent } from "./activation.js";
 import { getDefaultAgentName, setDefaultAgentName } from "./config.js";
@@ -46,7 +55,11 @@ export async function activateAgent(
 
   if (agent.name === "agent-architect-web") {
     const available = new Set(pi.getAllTools().map((tool) => tool.name));
-    const missing = ["web_search", "fetch_content", "get_search_content"].filter((name) => !available.has(name));
+    const missing = [
+      "web_search",
+      "fetch_content",
+      "get_search_content",
+    ].filter((name) => !available.has(name));
     if (missing.length) {
       ctx.ui.notify(
         `Agent "${agent.name}" requires pi-web-access (missing: ${missing.join(", ")}). Install it with "pi install npm:pi-web-access", then run /reload; or use /agent agent-architect.`,
@@ -81,7 +94,9 @@ async function deactivateAgent(
 
   pi.setActiveTools(state.savedTools);
   if (state.savedModelId) {
-    const model = ctx.modelRegistry.getAll().find((m) => m.id === state.savedModelId);
+    const model = ctx.modelRegistry
+      .getAll()
+      .find((m) => m.id === state.savedModelId);
     if (model) await pi.setModel(model);
   }
   if (state.savedThinkingLevel) {
@@ -92,7 +107,10 @@ async function deactivateAgent(
   delete process.env.PI_ACTIVE_AGENT;
   persistActiveAgent(pi, null); // record the "off" intent so reload respects it
   ctx.ui.setStatus("agent", undefined);
-  ctx.ui.notify("Agent deactivated — tools, model and thinking level restored", "info");
+  ctx.ui.notify(
+    "Agent deactivated — tools, model and thinking level restored",
+    "info",
+  );
 }
 
 // ── Interactive selector ──
@@ -118,9 +136,14 @@ export async function showAgentSelector(
   ] as const;
 
   for (const section of sections) {
-    const sectionAgents = agents.filter((agent) => agent.source === section.source);
+    const sectionAgents = agents.filter(
+      (agent) => agent.source === section.source,
+    );
     if (!sectionAgents.length) continue;
-    items.push({ value: `${headerPrefix}${section.source}`, label: `── ${section.label} ──` });
+    items.push({
+      value: `${headerPrefix}${section.source}`,
+      label: `── ${section.label} ──`,
+    });
 
     for (const agent of sectionAgents) {
       const isActive = agent.name === state?.name;
@@ -129,7 +152,9 @@ export async function showAgentSelector(
       items.push({
         value: agent.name,
         label,
-        description: modelInfo ? `${agent.description} — ${modelInfo}` : agent.description,
+        description: modelInfo
+          ? `${agent.description} — ${modelInfo}`
+          : agent.description,
       });
     }
   }
@@ -171,7 +196,11 @@ export async function showAgentSelector(
     container.addChild(selectList);
 
     container.addChild(
-      new Text(theme.fg("dim", "↑↓ navigate  ·  enter select  ·  esc cancel"), 1, 0),
+      new Text(
+        theme.fg("dim", "↑↓ navigate  ·  enter select  ·  esc cancel"),
+        1,
+        0,
+      ),
     );
     container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
 
@@ -185,8 +214,11 @@ export async function showAgentSelector(
         const selected = selectList.getSelectedItem();
         if (selected?.value.startsWith(headerPrefix)) {
           const headerIndex = items.indexOf(selected);
-          const movingDown = headerIndex > before || (before === items.length - 1 && headerIndex === 0);
-          const nextIndex = (headerIndex + (movingDown ? 1 : -1) + items.length) % items.length;
+          const movingDown =
+            headerIndex > before ||
+            (before === items.length - 1 && headerIndex === 0);
+          const nextIndex =
+            (headerIndex + (movingDown ? 1 : -1) + items.length) % items.length;
           selectList.setSelectedIndex(nextIndex);
         }
         tui.requestRender();
@@ -202,7 +234,9 @@ export async function showAgentSelector(
   } else {
     choice = await ctx.ui.select(
       "Select an agent",
-      items.filter((item) => !item.value.startsWith(headerPrefix)).map((item) => item.value),
+      items
+        .filter((item) => !item.value.startsWith(headerPrefix))
+        .map((item) => item.value),
     );
   }
 
@@ -220,7 +254,8 @@ export function registerAgentCommand(
   setState: (state: ActiveAgentState | null) => void,
 ): void {
   pi.registerCommand("agent", {
-    description: "Activate, deactivate or list agents. Usage: /agent [name|off]",
+    description:
+      "Activate, deactivate or list agents. Usage: /agent [name|off]",
     getArgumentCompletions: (prefix: string): AutocompleteItem[] | null => {
       // NOTE: uses process.cwd() because this callback isn't passed a ctx.
       // If the project cwd differs from the process cwd, completions may be off.
@@ -273,7 +308,8 @@ export function registerAgentCommand(
   // ── /agent-default command: set the agent auto-activated at startup ──
   // Persisted to <agent dir>/config.json, so it survives pi restarts.
   pi.registerCommand("agent-default", {
-    description: "Sets the agent activated at pi startup (persistent). Usage: /agent-default [name|off]",
+    description:
+      "Sets the agent activated at pi startup (persistent). Usage: /agent-default [name|off]",
     getArgumentCompletions: (prefix: string): AutocompleteItem[] | null => {
       const agents = discoverAgents(process.cwd());
       const current = getDefaultAgentName();
@@ -340,11 +376,16 @@ export function registerAgentCommand(
   //   /agent-prompt first    → session-start prompt (survives reload via session entry)
   // The full text is written to ~/.pi/last-system-prompt.md for easy viewing.
   pi.registerCommand("agent-prompt", {
-    description: "Show the system prompt actually sent (post-rewrite). Usage: /agent-prompt [first]",
+    description:
+      "Show the system prompt actually sent (post-rewrite). Usage: /agent-prompt [first]",
     getArgumentCompletions: (prefix: string): AutocompleteItem[] | null => {
       const items: AutocompleteItem[] = [];
       if ("first".startsWith(prefix.toLowerCase())) {
-        items.push({ value: "first", label: "first", description: "Session-start prompt (persisted, survives reload)" });
+        items.push({
+          value: "first",
+          label: "first",
+          description: "Session-start prompt (persisted, survives reload)",
+        });
       }
       return items.length ? items : null;
     },
@@ -353,7 +394,9 @@ export function registerAgentCommand(
 
       // In-memory record first; fall back to the persisted session entry
       // (covers reload/resume where memory is empty).
-      let rec: SentPromptRecord | null = wantFirst ? getFirstSentPrompt() : getLatestSentPrompt();
+      let rec: SentPromptRecord | null = wantFirst
+        ? getFirstSentPrompt()
+        : getLatestSentPrompt();
       if (!rec) {
         try {
           rec = readPersistedPrompt(ctx.sessionManager.getEntries());
@@ -377,9 +420,13 @@ export function registerAgentCommand(
         fs.mkdirSync(path.dirname(dumpPath), { recursive: true });
         fs.writeFileSync(dumpPath, rec.prompt, "utf-8");
         dumped = true;
-      } catch { /* dump is best-effort */ }
+      } catch {
+        /* dump is best-effort */
+      }
 
-      const when = rec.timestamp ? new Date(rec.timestamp).toISOString() : "unknown";
+      const when = rec.timestamp
+        ? new Date(rec.timestamp).toISOString()
+        : "unknown";
       const header =
         `Agent: ${rec.agentName ?? "(none)"} · source: ${rec.source} · sent: ${when} · ${rec.prompt.length} chars` +
         (dumped ? `\nFull text: ${dumpPath}` : "");
@@ -399,22 +446,27 @@ export function registerAgentCommand(
   // Captured in before_provider_request AFTER the allow-list guard runs, so
   // this is the real, final list — not just the agent's configured `tools:`.
   pi.registerCommand("agent-tools", {
-    description: "Show the tools actually sent to the provider on the last request",
+    description:
+      "Show the tools actually sent to the provider on the last request",
     handler: async () => {
       const rec = getLatestSentTools();
       if (!rec) {
         pi.sendMessage({
           customType: AGENT_TOOLS_VIEW_TYPE,
-          content: "No provider request sent yet this session — send a turn first.",
+          content:
+            "No provider request sent yet this session — send a turn first.",
           display: true,
         });
         return;
       }
 
       const when = new Date(rec.timestamp).toISOString();
-      const header = `Agent: ${rec.agentName ?? "(none)"} · sent: ${when} · ${rec.tools.length} tool(s)` +
+      const header =
+        `Agent: ${rec.agentName ?? "(none)"} · sent: ${when} · ${rec.tools.length} tool(s)` +
         (rec.guardApplied ? " · allow-list enforced" : "") +
-        (!rec.found ? " · ⚠ tools array not found in payload (guard could not verify)" : "");
+        (!rec.found
+          ? " · ⚠ tools array not found in payload (guard could not verify)"
+          : "");
 
       const list = rec.tools.length
         ? rec.tools.map((t) => `- ${t}`).join("\n")

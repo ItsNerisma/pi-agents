@@ -8,7 +8,10 @@
  *   it can be restored on reload/resume/fork (see hook.ts `session_start`).
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { resolveTools } from "./registry.js";
 import type { AgentConfig, ActiveAgentState } from "./types.js";
@@ -45,17 +48,27 @@ export async function applyAgent(
   if (agent.model) {
     // Supports both "provider/model" (composite) and "model" (id only)
     const slashIdx = agent.model.indexOf("/");
-    const model = slashIdx !== -1
-      ? ctx.modelRegistry.find(agent.model.slice(0, slashIdx), agent.model.slice(slashIdx + 1))
-      : ctx.modelRegistry.getAll().find((m) => m.id === agent.model);
+    const model =
+      slashIdx !== -1
+        ? ctx.modelRegistry.find(
+            agent.model.slice(0, slashIdx),
+            agent.model.slice(slashIdx + 1),
+          )
+        : ctx.modelRegistry.getAll().find((m) => m.id === agent.model);
 
     if (model) {
       const ok = await pi.setModel(model);
       if (!ok) {
-        ctx.ui.notify(`Agent "${agent.name}": model "${agent.model}" without configured API key`, "warning");
+        ctx.ui.notify(
+          `Agent "${agent.name}": model "${agent.model}" without configured API key`,
+          "warning",
+        );
       }
     } else {
-      ctx.ui.notify(`Agent "${agent.name}": model "${agent.model}" not found`, "warning");
+      ctx.ui.notify(
+        `Agent "${agent.name}": model "${agent.model}" not found`,
+        "warning",
+      );
     }
   }
 
@@ -79,7 +92,10 @@ interface SessionEntryLike {
  * entry, so it can be restored on reload. Append-only; the last entry wins.
  * Never sent to the LLM. Non-fatal on failure.
  */
-export function persistActiveAgent(pi: ExtensionAPI, name: string | null): void {
+export function persistActiveAgent(
+  pi: ExtensionAPI,
+  name: string | null,
+): void {
   try {
     pi.appendEntry(SESSION_AGENT_TYPE, { name });
   } catch {

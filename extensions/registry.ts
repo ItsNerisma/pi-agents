@@ -12,7 +12,14 @@ import { parseFrontmatter } from "@earendil-works/pi-coding-agent";
 import type { AgentConfig } from "./types.js";
 
 /** Default tools applied when an agent declares no `tools:` in its frontmatter. */
-export const DEFAULT_AGENT_TOOLS = ["read", "grep", "find", "ls", "bash", "ask_user_question"];
+export const DEFAULT_AGENT_TOOLS = [
+  "read",
+  "grep",
+  "find",
+  "ls",
+  "bash",
+  "ask_user_question",
+];
 
 export const AGENT_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 export const AGENT_FRONTMATTER_FIELDS = new Set([
@@ -25,7 +32,15 @@ export const AGENT_FRONTMATTER_FIELDS = new Set([
   "useAgentFile",
   "delegate",
 ]);
-export const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
+export const THINKING_LEVELS = new Set([
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+]);
 
 export interface AgentDiagnostic {
   severity: "error" | "warning";
@@ -77,7 +92,11 @@ function asList(
   }
 
   const filtered = list.filter(Boolean);
-  const duplicates = [...new Set(filtered.filter((item, index) => filtered.indexOf(item) !== index))];
+  const duplicates = [
+    ...new Set(
+      filtered.filter((item, index) => filtered.indexOf(item) !== index),
+    ),
+  ];
   if (duplicates.length) {
     diagnostics.push({
       severity: "warning",
@@ -144,13 +163,19 @@ export function parseAgentMarkdown(
   const description = asString(frontmatter.description);
   const tools = asList(frontmatter.tools, "tools", diagnostics);
   const skills: string[] | false | undefined =
-    frontmatter.skills === false ? false : asList(frontmatter.skills, "skills", diagnostics);
+    frontmatter.skills === false
+      ? false
+      : asList(frontmatter.skills, "skills", diagnostics);
   const model = asString(frontmatter.model);
   const thinkingLevel = asString(frontmatter.thinkingLevel);
   const systemPrompt = body.trim();
 
   if (!name) {
-    diagnostics.push({ severity: "error", code: "missing_name", message: 'Required field "name" is missing or empty' });
+    diagnostics.push({
+      severity: "error",
+      code: "missing_name",
+      message: 'Required field "name" is missing or empty',
+    });
   } else {
     if (!AGENT_NAME_PATTERN.test(name)) {
       diagnostics.push({
@@ -160,7 +185,8 @@ export function parseAgentMarkdown(
       });
     }
     const basename = path.basename(filePath, path.extname(filePath));
-    const expectedName = source === "system" ? basename.toLowerCase() : basename;
+    const expectedName =
+      source === "system" ? basename.toLowerCase() : basename;
     if (expectedName !== name) {
       diagnostics.push({
         severity: "error",
@@ -178,10 +204,18 @@ export function parseAgentMarkdown(
     });
   }
   if (!systemPrompt) {
-    diagnostics.push({ severity: "error", code: "empty_prompt", message: "System prompt body is empty" });
+    diagnostics.push({
+      severity: "error",
+      code: "empty_prompt",
+      message: "System prompt body is empty",
+    });
   }
   if (frontmatter.model !== undefined && !model) {
-    diagnostics.push({ severity: "error", code: "invalid_model", message: '"model" must be a non-empty string' });
+    diagnostics.push({
+      severity: "error",
+      code: "invalid_model",
+      message: '"model" must be a non-empty string',
+    });
   }
   if (frontmatter.thinkingLevel !== undefined && !thinkingLevel) {
     diagnostics.push({
@@ -199,39 +233,48 @@ export function parseAgentMarkdown(
 
   const useAgentFile = asBool(frontmatter.useAgentFile, diagnostics);
   const delegate = asList(frontmatter.delegate, "delegate", diagnostics);
-  const agent = name && description
-    ? {
-        name,
-        description,
-        tools,
-        skills,
-        model,
-        thinkingLevel,
-        systemPrompt,
-        source,
-        filePath,
-        useAgentFile,
-        delegate,
-      }
-    : undefined;
+  const agent =
+    name && description
+      ? {
+          name,
+          description,
+          tools,
+          skills,
+          model,
+          thinkingLevel,
+          systemPrompt,
+          source,
+          filePath,
+          useAgentFile,
+          delegate,
+        }
+      : undefined;
 
   return { agent, frontmatter, body, diagnostics };
 }
 
 /** Returns the global pi agent directory. */
 export function getAgentDir(): string {
-  return process.env.PI_CODING_AGENT_DIR ?? path.join(os.homedir(), ".pi", "agent");
+  return (
+    process.env.PI_CODING_AGENT_DIR ?? path.join(os.homedir(), ".pi", "agent")
+  );
 }
 
 /** Exact directories used for one cwd. */
-export function getAgentDirectories(cwd: string): { user: string; project: string } {
+export function getAgentDirectories(cwd: string): {
+  user: string;
+  project: string;
+} {
   return {
     user: path.join(getAgentDir(), "agents"),
     project: path.join(cwd, ".pi", "agents"),
   };
 }
 
-function loadAgentsFromDir(dir: string, source: "system" | "user" | "project"): AgentConfig[] {
+function loadAgentsFromDir(
+  dir: string,
+  source: "system" | "user" | "project",
+): AgentConfig[] {
   if (!fs.existsSync(dir)) return [];
 
   let entries: fs.Dirent[];
@@ -250,7 +293,9 @@ function loadAgentsFromDir(dir: string, source: "system" | "user" | "project"): 
     try {
       const content = fs.readFileSync(filePath, "utf-8");
       const parsed = parseAgentMarkdown(
-        source === "system" ? content.replace(/^model: __PI_DEFAULT_MODEL__\r?\n/m, "") : content,
+        source === "system"
+          ? content.replace(/^model: __PI_DEFAULT_MODEL__\r?\n/m, "")
+          : content,
         source,
         filePath,
       );
@@ -265,17 +310,29 @@ function loadAgentsFromDir(dir: string, source: "system" | "user" | "project"): 
 /** Discovers agents in display and precedence order: project, global, system. */
 export function discoverAgents(cwd: string): AgentConfig[] {
   const dirs = getAgentDirectories(cwd);
-  const systemDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "agents");
-  const byName = (agents: AgentConfig[]) => new Map(agents.map((agent) => [agent.name, agent]));
+  const systemDir = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "agents",
+  );
+  const byName = (agents: AgentConfig[]) =>
+    new Map(agents.map((agent) => [agent.name, agent]));
   const project = byName(loadAgentsFromDir(dirs.project, "project"));
   const user = byName(loadAgentsFromDir(dirs.user, "user"));
   const system = byName(loadAgentsFromDir(systemDir, "system"));
-  const sortByName = (agents: AgentConfig[]) => agents.sort((a, b) => a.name.localeCompare(b.name));
+  const sortByName = (agents: AgentConfig[]) =>
+    agents.sort((a, b) => a.name.localeCompare(b.name));
 
   return [
     ...sortByName([...project.values()]),
-    ...sortByName([...user.values()].filter((agent) => !project.has(agent.name))),
-    ...sortByName([...system.values()].filter((agent) => !project.has(agent.name) && !user.has(agent.name))),
+    ...sortByName(
+      [...user.values()].filter((agent) => !project.has(agent.name)),
+    ),
+    ...sortByName(
+      [...system.values()].filter(
+        (agent) => !project.has(agent.name) && !user.has(agent.name),
+      ),
+    ),
   ];
 }
 
@@ -293,7 +350,9 @@ export function findAgent(cwd: string, name: string): AgentConfig | undefined {
  * Runner.ts does NOT use this because sub‑agents must not re‑delegate.
  */
 export function resolveTools(agent: AgentConfig): string[] {
-  const base = agent.tools?.length ? [...agent.tools] : [...DEFAULT_AGENT_TOOLS];
+  const base = agent.tools?.length
+    ? [...agent.tools]
+    : [...DEFAULT_AGENT_TOOLS];
   if (agent.delegate?.length && !base.includes("delegate")) {
     base.push("delegate");
   }

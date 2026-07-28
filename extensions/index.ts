@@ -26,7 +26,9 @@ export default function (pi: ExtensionAPI) {
   let activeAgentState: ActiveAgentState | null = null;
 
   const getState = () => activeAgentState;
-  const setState = (s: ActiveAgentState | null) => { activeAgentState = s; };
+  const setState = (s: ActiveAgentState | null) => {
+    activeAgentState = s;
+  };
 
   // Registration
   registerDelegateTool(pi, () => activeAgentState?.name ?? null);

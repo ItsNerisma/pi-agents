@@ -38,7 +38,10 @@
  *       chat messages) from the LLM context.
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import { findAgent, resolveTools } from "./registry.js";
 import { applyAgent, readPersistedAgent } from "./activation.js";
 import { composeAgentPrompt } from "./prompt-build.js";
@@ -55,8 +58,14 @@ import type { ActiveAgentState } from "./types.js";
 function findToolsArray(payload: unknown): unknown[] | null {
   if (!payload || typeof payload !== "object") return null;
   const p = payload as Record<string, unknown>;
-  const nested = (k: string) => (p[k] as Record<string, unknown> | undefined)?.tools;
-  for (const c of [p.tools, nested("body"), nested("request"), nested("params")]) {
+  const nested = (k: string) =>
+    (p[k] as Record<string, unknown> | undefined)?.tools;
+  for (const c of [
+    p.tools,
+    nested("body"),
+    nested("request"),
+    nested("params"),
+  ]) {
     if (Array.isArray(c)) return c;
   }
   return null;
@@ -101,8 +110,15 @@ export function registerHooks(
       const state = await applyAgent(pi, ctx, agent, null);
       options?.setActiveAgentState?.(state);
       process.env.PI_ACTIVE_AGENT = agent.name;
-      try { ctx.ui.setStatus("agent", ctx.ui.theme.fg("accent", `Agent: ${agent.name}`)); } catch {}
-      try { ctx.ui.notify(`Agent "${agent.name}" activated automatically`, "info"); } catch {}
+      try {
+        ctx.ui.setStatus(
+          "agent",
+          ctx.ui.theme.fg("accent", `Agent: ${agent.name}`),
+        );
+      } catch {}
+      try {
+        ctx.ui.notify(`Agent "${agent.name}" activated automatically`, "info");
+      } catch {}
     } catch {
       // fail-open: use Pi's default session settings
     }
@@ -149,7 +165,12 @@ export function registerHooks(
       const state = await applyAgent(pi, ctx, agent, null);
       options?.setActiveAgentState?.(state);
       process.env.PI_ACTIVE_AGENT = agent.name;
-      try { ctx.ui.setStatus("agent", ctx.ui.theme.fg("accent", `Agent: ${agent.name}`)); } catch {}
+      try {
+        ctx.ui.setStatus(
+          "agent",
+          ctx.ui.theme.fg("accent", `Agent: ${agent.name}`),
+        );
+      } catch {}
     } catch {
       // fail-open: leave default behaviour
     }
@@ -165,19 +186,35 @@ export function registerHooks(
       if (!agent?.systemPrompt) {
         return;
       }
-      const { prompt, missingSkills, missingDelegates } = composeAgentPrompt(pi, ctx.cwd, agent, {
-        systemPromptOptions: (event as { systemPromptOptions?: unknown }).systemPromptOptions,
-        modelId: ctx.model?.id,
-      });
+      const { prompt, missingSkills, missingDelegates } = composeAgentPrompt(
+        pi,
+        ctx.cwd,
+        agent,
+        {
+          systemPromptOptions: (event as { systemPromptOptions?: unknown })
+            .systemPromptOptions,
+          modelId: ctx.model?.id,
+        },
+      );
       if (missingSkills.length) {
         try {
-          ctx.ui.notify(`Agent "${agent.name}": unknown skills ignored: ${missingSkills.join(", ")}`, "warning");
-        } catch { /* no UI */ }
+          ctx.ui.notify(
+            `Agent "${agent.name}": unknown skills ignored: ${missingSkills.join(", ")}`,
+            "warning",
+          );
+        } catch {
+          /* no UI */
+        }
       }
       if (missingDelegates.length) {
         try {
-          ctx.ui.notify(`Agent "${agent.name}": unknown delegates ignored: ${missingDelegates.join(", ")}`, "warning");
-        } catch { /* no UI */ }
+          ctx.ui.notify(
+            `Agent "${agent.name}": unknown delegates ignored: ${missingDelegates.join(", ")}`,
+            "warning",
+          );
+        } catch {
+          /* no UI */
+        }
       }
       recordSentPrompt(pi, { agentName: agent.name, prompt, source: "agent" });
 
@@ -196,7 +233,9 @@ export function registerHooks(
           found: true,
           guardApplied: true,
         });
-      } catch { /* fail-open */ }
+      } catch {
+        /* fail-open */
+      }
 
       return { systemPrompt: prompt };
     }
@@ -211,9 +250,17 @@ export function registerHooks(
   // confuses the model with its own prompt.
   const VIEWER_TYPES = new Set([AGENT_PROMPT_VIEW_TYPE, AGENT_TOOLS_VIEW_TYPE]);
   pi.on("context", async (event) => {
-    const messages = event.messages as Array<{ role?: string; customType?: string }>;
+    const messages = event.messages as Array<{
+      role?: string;
+      customType?: string;
+    }>;
     const filtered = messages.filter(
-      (m) => !(m.role === "custom" && m.customType && VIEWER_TYPES.has(m.customType)),
+      (m) =>
+        !(
+          m.role === "custom" &&
+          m.customType &&
+          VIEWER_TYPES.has(m.customType)
+        ),
     );
     if (filtered.length !== messages.length) {
       return { messages: filtered as typeof event.messages };
@@ -253,7 +300,9 @@ export function registerHooks(
             `Tool guard inactive: "tools" array not found in payload — agent's allow-list is NOT applied.`,
             "warning",
           );
-        } catch { /* no UI available in this context */ }
+        } catch {
+          /* no UI available in this context */
+        }
       }
 
       if (allowSet && tools) {
@@ -273,7 +322,10 @@ export function registerHooks(
       // above ran, so it reflects exactly what goes out on the wire.
       recordSentTools({
         agentName: getActiveAgentName(),
-        tools: (tools ?? []).map(toolName).filter((n): n is string => !!n).sort(),
+        tools: (tools ?? [])
+          .map(toolName)
+          .filter((n): n is string => !!n)
+          .sort(),
         found: !!tools,
         guardApplied: !!allowSet,
       });

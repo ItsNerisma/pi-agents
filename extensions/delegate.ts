@@ -14,21 +14,25 @@ import type { AgentResult, DelegateDetails } from "./types.js";
 
 const DelegateParams = Type.Object({
   agent: Type.String({ description: "Name of the agent to invoke" }),
-  task: Type.String({ description: "Task to delegate, with all necessary context" }),
+  task: Type.String({
+    description: "Task to delegate, with all necessary context",
+  }),
 });
 
 /**
  * Builds promptGuidelines dynamically from the discovered agents.
  */
-function buildPromptGuidelines(agents: ReturnType<typeof discoverAgents>): string[] {
+function buildPromptGuidelines(
+  agents: ReturnType<typeof discoverAgents>,
+): string[] {
   const guidelines: string[] = [
     "Use delegate to hand off to specialized agents. Describe the CONCEPT or TASK to solve.",
   ];
-  
+
   for (const agent of agents) {
     guidelines.push(`delegate ${agent.name} — ${agent.description}`);
   }
-  
+
   return guidelines;
 }
 
@@ -37,7 +41,7 @@ export function registerDelegateTool(
   getActiveAgentName: () => string | null,
 ): void {
   let cachedGuidelines: string[] | null = null;
-  
+
   pi.registerTool({
     name: "delegate",
     label: "Delegate",
@@ -46,10 +50,12 @@ export function registerDelegateTool(
       "The agent receives the task, works autonomously, and returns its result.",
       "Use to break down complex requests into specialized sub-tasks.",
     ].join(" "),
-    promptSnippet: "Delegate a task to a specialized agent that works in isolation and returns a targeted summary",
-    promptGuidelines: (() => cachedGuidelines || [
-      "Use delegate to hand off to specialized agents. Describe the CONCEPT or TASK to solve.",
-    ]) as unknown as string[],
+    promptSnippet:
+      "Delegate a task to a specialized agent that works in isolation and returns a targeted summary",
+    promptGuidelines: (() =>
+      cachedGuidelines || [
+        "Use delegate to hand off to specialized agents. Describe the CONCEPT or TASK to solve.",
+      ]) as unknown as string[],
     parameters: DelegateParams,
 
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
@@ -67,16 +73,29 @@ export function registerDelegateTool(
         const activeAgent = findAgent(ctx.cwd, activeName);
         if (activeAgent?.delegate?.length) {
           const needle = params.agent.toLowerCase();
-          const allowed = activeAgent.delegate.find((n) => n.toLowerCase() === needle);
+          const allowed = activeAgent.delegate.find(
+            (n) => n.toLowerCase() === needle,
+          );
           if (!allowed) {
             const available = activeAgent.delegate.join(", ");
             return {
-              content: [{ type: "text", text: `Agent "${activeName}" cannot delegate to "${params.agent}". Allowed targets: ${available}` }],
+              content: [
+                {
+                  type: "text",
+                  text: `Agent "${activeName}" cannot delegate to "${params.agent}". Allowed targets: ${available}`,
+                },
+              ],
               details: {
                 agent: params.agent,
                 task: params.task,
                 exitCode: 1,
-                usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+                usage: {
+                  input: 0,
+                  output: 0,
+                  cacheRead: 0,
+                  cacheWrite: 0,
+                  cost: 0,
+                },
                 errorMessage: `Delegation denied: "${params.agent}" is not in ${activeName}'s delegate allow-list.`,
               } as DelegateDetails,
             };
@@ -93,12 +112,23 @@ export function registerDelegateTool(
       if (!agent) {
         const available = agents.map((a) => a.name).join(", ");
         return {
-          content: [{ type: "text", text: `Unknown agent "${params.agent}". Available agents: ${available}` }],
+          content: [
+            {
+              type: "text",
+              text: `Unknown agent "${params.agent}". Available agents: ${available}`,
+            },
+          ],
           details: {
             agent: params.agent,
             task: params.task,
             exitCode: 1,
-            usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+            usage: {
+              input: 0,
+              output: 0,
+              cacheRead: 0,
+              cacheWrite: 0,
+              cost: 0,
+            },
             errorMessage: `Unknown agent "${params.agent}".`,
           } as DelegateDetails,
         };
@@ -149,9 +179,15 @@ export function registerDelegateTool(
 
       // ── Error ──
       if (result.exitCode !== 0 || result.errorMessage) {
-        const errMsg = result.errorMessage || result.stderr || result.output || "Unknown error";
+        const errMsg =
+          result.errorMessage ||
+          result.stderr ||
+          result.output ||
+          "Unknown error";
         return {
-          content: [{ type: "text", text: `FAILED: ${result.agent} — ${errMsg}` }],
+          content: [
+            { type: "text", text: `FAILED: ${result.agent} — ${errMsg}` },
+          ],
           details,
           isError: true,
         };
@@ -183,20 +219,27 @@ export function registerDelegateTool(
       const outputText = output?.type === "text" ? output.text : "";
       const isError = context.isError;
 
-      const status = isPartial ? "RUNNING" : (isError ? "FAILED" : "DONE");
+      const status = isPartial ? "RUNNING" : isError ? "FAILED" : "DONE";
       const metricsLine = buildMetricsLine(details, "  ");
 
       // ── Live status ──
       if (isPartial) {
-        let text = "\n" +
-          theme.fg("toolTitle", theme.bold(`DELEGATE TO ${details?.agent ?? "?"}`)) +
-          " " + theme.fg("dim", `[${status}]`) + "\n\n" +
+        let text =
+          "\n" +
+          theme.fg(
+            "toolTitle",
+            theme.bold(`DELEGATE TO ${details?.agent ?? "?"}`),
+          ) +
+          " " +
+          theme.fg("dim", `[${status}]`) +
+          "\n\n" +
           theme.fg("toolOutput", outputText || "  ...");
 
         if (details?.thinkingText) {
-          const truncatedThinking = details.thinkingText.length > 500
-            ? details.thinkingText.slice(0, 500) + "..."
-            : details.thinkingText;
+          const truncatedThinking =
+            details.thinkingText.length > 500
+              ? details.thinkingText.slice(0, 500) + "..."
+              : details.thinkingText;
           text += "\n\n" + theme.fg("dim", `thinking: ${truncatedThinking}`);
         }
         text += "\n\n" + theme.fg("dim", metricsLine);
@@ -204,18 +247,24 @@ export function registerDelegateTool(
       }
 
       // ── Final result ──
-      let text = "\n" +
-        theme.fg("toolTitle", theme.bold(`DELEGATE TO ${details?.agent ?? "?"}`)) +
-        " " + theme.fg("dim", `[${status}]`);
+      let text =
+        "\n" +
+        theme.fg(
+          "toolTitle",
+          theme.bold(`DELEGATE TO ${details?.agent ?? "?"}`),
+        ) +
+        " " +
+        theme.fg("dim", `[${status}]`);
 
       if (outputText) {
         text += "\n\n" + theme.fg("toolOutput", outputText);
       }
 
       if (details?.thinkingText) {
-        const truncatedThinking = details.thinkingText.length > 500
-          ? details.thinkingText.slice(0, 500) + "..."
-          : details.thinkingText;
+        const truncatedThinking =
+          details.thinkingText.length > 500
+            ? details.thinkingText.slice(0, 500) + "..."
+            : details.thinkingText;
         text += "\n\n" + theme.fg("dim", `thinking: ${truncatedThinking}`);
       }
       text += "\n" + theme.fg("dim", metricsLine);
@@ -224,7 +273,10 @@ export function registerDelegateTool(
   });
 }
 
-function buildMetricsLine(details: DelegateDetails | undefined, prefix: string): string {
+function buildMetricsLine(
+  details: DelegateDetails | undefined,
+  prefix: string,
+): string {
   if (!details?.usage) return "";
   const parts: string[] = [];
   parts.push("in: " + formatTokens(details.usage.input));

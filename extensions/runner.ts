@@ -36,8 +36,18 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { getAgentDir } from "./registry.js";
-import { currentDateSnippet, delegationSnippet, environmentSnippet } from "./prompt-build.js";
-import type { AgentConfig, AgentResult, AgentUsage, AgentProgress, AgentProgressCallback } from "./types.js";
+import {
+  currentDateSnippet,
+  delegationSnippet,
+  environmentSnippet,
+} from "./prompt-build.js";
+import type {
+  AgentConfig,
+  AgentResult,
+  AgentUsage,
+  AgentProgress,
+  AgentProgressCallback,
+} from "./types.js";
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -59,7 +69,15 @@ export function formatDuration(ms: number): string {
 
 type StreamEntry =
   | { type: "text"; text: string }
-  | { type: "tool"; id: string; name: string; detail: string; done: boolean; failed: boolean };
+  | {
+      type: "tool";
+      id: string;
+      name: string;
+      detail: string;
+      done: boolean;
+      failed: boolean;
+      result?: string;
+    };
 
 interface StreamState {
   entries: StreamEntry[];
@@ -83,7 +101,8 @@ function snapshot(state: StreamState, durationMs: number): AgentProgress {
   let lastWasTool = false;
   for (const e of state.entries) {
     if (e.type === "text") {
-      const truncated = e.text.length > 100 ? `${e.text.slice(0, 100)}...` : e.text;
+      const truncated =
+        e.text.length > 100 ? `${e.text.slice(0, 100)}...` : e.text;
       actions.push(truncated);
       if (lastWasTool && transcriptLines.length > 0) transcriptLines.push("");
       transcriptLines.push(e.text);
@@ -96,7 +115,9 @@ function snapshot(state: StreamState, durationMs: number): AgentProgress {
       if (!e.done) activeTools.push(label);
       const marker = e.done ? (e.failed ? "✗" : "✓") : "…";
       const verb = e.done ? "" : " TOOL";
-      transcriptLines.push(`  [${marker}]${verb} ${e.name}${e.detail ? " | " + e.detail : ""}`);
+      transcriptLines.push(
+        `  [${marker}]${verb} ${e.name}${e.detail ? " | " + e.detail : ""}`,
+      );
       lastWasTool = true;
     }
   }
@@ -172,7 +193,8 @@ function processEvent(
   switch (event.type) {
     // ── Text streaming ──
     case "message_update": {
-      const ame = event.assistantMessageEvent as { type: string; delta?: string } | undefined;
+      const ame = event.assistantMessageEvent as
+        { type: string; delta?: string } | undefined;
       if (!ame) return;
 
       // Thinking-phase counter: incremented even after non-thinking content
@@ -218,7 +240,14 @@ function processEvent(
       }
       const { toolCallId, toolName, args } = event;
       const detail = describeToolArgs(args);
-      state.entries.push({ type: "tool", id: toolCallId, name: toolName, detail, done: false, failed: false });
+      state.entries.push({
+        type: "tool",
+        id: toolCallId,
+        name: toolName,
+        detail,
+        done: false,
+        failed: false,
+      });
       state.toolCount++;
       onUpdate?.(snapshot(state, elapsed));
       break;
@@ -232,16 +261,22 @@ function processEvent(
         state.textAcc = "";
       }
       const { toolCallId, isError } = event;
-      const entry = state.entries.find(e => e.type === "tool" && e.id === toolCallId);
+      const entry = state.entries.find(
+        (e) => e.type === "tool" && e.id === toolCallId,
+      );
       if (entry && entry.type === "tool") {
         entry.done = true;
         entry.failed = isError;
         // Extract result text for the transcript
-        const result = event.result as { content?: Array<{ type: string; text?: string }> } | undefined;
+        const result = event.result as
+          { content?: Array<{ type: string; text?: string }> } | undefined;
         if (result?.content) {
           const texts = result.content
-            .filter((c): c is { type: "text"; text: string } => c.type === "text" && typeof c.text === "string")
-            .map(c => c.text);
+            .filter(
+              (c): c is { type: "text"; text: string } =>
+                c.type === "text" && typeof c.text === "string",
+            )
+            .map((c) => c.text);
           if (texts.length) entry.result = texts.join("\n");
         }
       }
@@ -254,7 +289,13 @@ function processEvent(
     case "message_end": {
       const msg = event.message as {
         role?: string;
-        usage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } };
+        usage?: {
+          input?: number;
+          output?: number;
+          cacheRead?: number;
+          cacheWrite?: number;
+          cost?: { total?: number };
+        };
         model?: string;
         errorMessage?: string;
         content?: Array<{ type: string; text?: string }>;
@@ -292,13 +333,19 @@ function processEvent(
     // ── Agent finished ──
     case "agent_end": {
       if (event.willRetry) break;
-      const msgs = event.messages as Array<{ role?: string; content?: Array<{ type: string; text?: string }> }>;
+      const msgs = event.messages as Array<{
+        role?: string;
+        content?: Array<{ type: string; text?: string }>;
+      }>;
       for (let i = msgs.length - 1; i >= 0; i--) {
         const m = msgs[i];
         if (m.role === "assistant" && m.content) {
           const texts = m.content
-            .filter((c): c is { type: "text"; text: string } => c.type === "text" && typeof c.text === "string")
-            .map(c => c.text);
+            .filter(
+              (c): c is { type: "text"; text: string } =>
+                c.type === "text" && typeof c.text === "string",
+            )
+            .map((c) => c.text);
           if (texts.length) {
             state.output = texts.join("\n\n");
           }
@@ -320,7 +367,10 @@ function resolveModel(runtime: ModelRuntime, modelSpec: string | undefined) {
   if (!modelSpec) return undefined;
   const slashIdx = modelSpec.indexOf("/");
   return slashIdx !== -1
-    ? runtime.getModel(modelSpec.slice(0, slashIdx), modelSpec.slice(slashIdx + 1))
+    ? runtime.getModel(
+        modelSpec.slice(0, slashIdx),
+        modelSpec.slice(slashIdx + 1),
+      )
     : runtime.getModels().find((m) => m.id === modelSpec);
 }
 
@@ -466,7 +516,7 @@ export async function runAgent(
     result.usage = { ...state.usage };
     result.model = state.model || result.model;
     result.errorMessage = state.errorMessage;
-    result.actions = state.entries.map(e => {
+    result.actions = state.entries.map((e) => {
       if (e.type === "text") {
         return e.text.length > 100 ? `${e.text.slice(0, 100)}...` : e.text;
       }
@@ -481,7 +531,9 @@ export async function runAgent(
     result.thinkingText = state.thinkingText;
 
     if (wasAborted) {
-      throw new Error(`Delegation cancelled or timeout reached (${formatDuration(AGENT_TIMEOUT_MS)})`);
+      throw new Error(
+        `Delegation cancelled or timeout reached (${formatDuration(AGENT_TIMEOUT_MS)})`,
+      );
     }
 
     return result;

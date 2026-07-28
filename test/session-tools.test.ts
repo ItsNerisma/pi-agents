@@ -26,31 +26,184 @@ function fixture() {
   mkdirSync(project);
   const sessionPath = join(project, "session.jsonl");
   const entries = [
-    { type: "session", version: 3, id: "session-1", timestamp: "2026-01-01T00:00:00.000Z", cwd: "/project" },
-    { type: "custom", id: "a", parentId: null, timestamp: "2026-01-01T00:00:01.000Z", customType: "nerisma-agents/active", data: { name: "agent-session-reviewer" } },
-    { type: "message", id: "b", parentId: "a", timestamp: "2026-01-01T00:00:02.000Z", message: { role: "assistant", provider: "test", model: "model", stopReason: "toolUse", usage: usage(0.1), content: [
-      { type: "thinking", thinking: "private reasoning" },
-      { type: "text", text: `API_KEY=supersecret ${"x".repeat(300)}` },
-      { type: "toolCall", id: "tc1", name: "bash", arguments: { command: "echo ok", password: "hidden" } },
-    ] } },
-    { type: "message", id: "c", parentId: "b", timestamp: "2026-01-01T00:00:03.000Z", message: { role: "toolResult", toolCallId: "tc1", toolName: "bash", isError: false, content: [{ type: "text", text: "ok" }] } },
-    { type: "message", id: "x", parentId: "c", timestamp: "2026-01-01T00:00:03.100Z", message: { role: "user", content: "abandoned branch" } },
-    { type: "message", id: "y", parentId: "x", timestamp: "2026-01-01T00:00:03.200Z", message: { role: "assistant", provider: "test", model: "model", stopReason: "toolUse", usage: usage(9), content: [{ type: "toolCall", id: "abandoned", name: "read", arguments: {} }] } },
-    { type: "message", id: "d", parentId: "c", timestamp: "2026-01-01T00:00:04.000Z", message: { role: "assistant", provider: "test", model: "model", stopReason: "toolUse", usage: usage(0.2), content: [{ type: "toolCall", id: "tc2", name: "read", arguments: { path: "/missing" } }] } },
-    { type: "message", id: "e", parentId: "d", timestamp: "2026-01-01T00:00:05.000Z", message: { role: "toolResult", toolCallId: "tc2", toolName: "read", isError: true, content: [{ type: "text", text: "missing" }] } },
-    { type: "message", id: "f", parentId: "e", timestamp: "2026-01-01T00:00:06.000Z", message: { role: "assistant", provider: "test", model: "model", stopReason: "toolUse", usage: usage(0.3), content: [{ type: "toolCall", id: "tc3", name: "grep", arguments: { pattern: "x" } }] } },
-    { type: "compaction", id: "g", parentId: "f", timestamp: "2026-01-01T00:00:07.000Z", summary: "summary", firstKeptEntryId: "e", tokensBefore: 100 },
-    { type: "custom", id: "h", parentId: "g", timestamp: "2026-01-01T00:00:08.000Z", customType: "nerisma-agents/active", data: { name: "other-agent" } },
-    { type: "message", id: "i", parentId: "h", timestamp: "2026-01-01T00:00:09.000Z", message: { role: "assistant", provider: "test", model: "model", stopReason: "stop", usage: usage(5), content: [{ type: "text", text: "done" }] } },
+    {
+      type: "session",
+      version: 3,
+      id: "session-1",
+      timestamp: "2026-01-01T00:00:00.000Z",
+      cwd: "/project",
+    },
+    {
+      type: "custom",
+      id: "a",
+      parentId: null,
+      timestamp: "2026-01-01T00:00:01.000Z",
+      customType: "nerisma-agents/active",
+      data: { name: "agent-session-reviewer" },
+    },
+    {
+      type: "message",
+      id: "b",
+      parentId: "a",
+      timestamp: "2026-01-01T00:00:02.000Z",
+      message: {
+        role: "assistant",
+        provider: "test",
+        model: "model",
+        stopReason: "toolUse",
+        usage: usage(0.1),
+        content: [
+          { type: "thinking", thinking: "private reasoning" },
+          { type: "text", text: `API_KEY=supersecret ${"x".repeat(300)}` },
+          {
+            type: "toolCall",
+            id: "tc1",
+            name: "bash",
+            arguments: { command: "echo ok", password: "hidden" },
+          },
+        ],
+      },
+    },
+    {
+      type: "message",
+      id: "c",
+      parentId: "b",
+      timestamp: "2026-01-01T00:00:03.000Z",
+      message: {
+        role: "toolResult",
+        toolCallId: "tc1",
+        toolName: "bash",
+        isError: false,
+        content: [{ type: "text", text: "ok" }],
+      },
+    },
+    {
+      type: "message",
+      id: "x",
+      parentId: "c",
+      timestamp: "2026-01-01T00:00:03.100Z",
+      message: { role: "user", content: "abandoned branch" },
+    },
+    {
+      type: "message",
+      id: "y",
+      parentId: "x",
+      timestamp: "2026-01-01T00:00:03.200Z",
+      message: {
+        role: "assistant",
+        provider: "test",
+        model: "model",
+        stopReason: "toolUse",
+        usage: usage(9),
+        content: [
+          { type: "toolCall", id: "abandoned", name: "read", arguments: {} },
+        ],
+      },
+    },
+    {
+      type: "message",
+      id: "d",
+      parentId: "c",
+      timestamp: "2026-01-01T00:00:04.000Z",
+      message: {
+        role: "assistant",
+        provider: "test",
+        model: "model",
+        stopReason: "toolUse",
+        usage: usage(0.2),
+        content: [
+          {
+            type: "toolCall",
+            id: "tc2",
+            name: "read",
+            arguments: { path: "/missing" },
+          },
+        ],
+      },
+    },
+    {
+      type: "message",
+      id: "e",
+      parentId: "d",
+      timestamp: "2026-01-01T00:00:05.000Z",
+      message: {
+        role: "toolResult",
+        toolCallId: "tc2",
+        toolName: "read",
+        isError: true,
+        content: [{ type: "text", text: "missing" }],
+      },
+    },
+    {
+      type: "message",
+      id: "f",
+      parentId: "e",
+      timestamp: "2026-01-01T00:00:06.000Z",
+      message: {
+        role: "assistant",
+        provider: "test",
+        model: "model",
+        stopReason: "toolUse",
+        usage: usage(0.3),
+        content: [
+          {
+            type: "toolCall",
+            id: "tc3",
+            name: "grep",
+            arguments: { pattern: "x" },
+          },
+        ],
+      },
+    },
+    {
+      type: "compaction",
+      id: "g",
+      parentId: "f",
+      timestamp: "2026-01-01T00:00:07.000Z",
+      summary: "summary",
+      firstKeptEntryId: "e",
+      tokensBefore: 100,
+    },
+    {
+      type: "custom",
+      id: "h",
+      parentId: "g",
+      timestamp: "2026-01-01T00:00:08.000Z",
+      customType: "nerisma-agents/active",
+      data: { name: "other-agent" },
+    },
+    {
+      type: "message",
+      id: "i",
+      parentId: "h",
+      timestamp: "2026-01-01T00:00:09.000Z",
+      message: {
+        role: "assistant",
+        provider: "test",
+        model: "model",
+        stopReason: "stop",
+        usage: usage(5),
+        content: [{ type: "text", text: "done" }],
+      },
+    },
   ];
-  writeFileSync(sessionPath, `${entries.map((entry) => JSON.stringify(entry)).join("\n")}\nnot-json\n`);
-  return { root, sessionPath, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+  writeFileSync(
+    sessionPath,
+    `${entries.map((entry) => JSON.stringify(entry)).join("\n")}\nnot-json\n`,
+  );
+  return {
+    root,
+    sessionPath,
+    cleanup: () => rmSync(root, { recursive: true, force: true }),
+  };
 }
 
 test("finds the latest active-branch segment for an agent", async () => {
   const item = fixture();
   try {
-    const result = await findAgentSessions("agent-session-reviewer", { sessionRoot: item.root });
+    const result = await findAgentSessions("agent-session-reviewer", {
+      sessionRoot: item.root,
+    });
     assert.equal(result.totalMatches, 1);
     assert.equal(result.matches[0].path, item.sessionPath);
     assert.equal(result.matches[0].lastTimestamp, "2026-01-01T00:00:09.000Z");
@@ -59,7 +212,10 @@ test("finds the latest active-branch segment for an agent", async () => {
     assert.equal(result.matches[0].latestSegment.endEntryId, "g");
     assert.deepEqual(result.matches[0].invalidLines, [13]);
 
-    const excluded = await findAgentSessions("agent-session-reviewer", { sessionRoot: item.root, excludePath: item.sessionPath });
+    const excluded = await findAgentSessions("agent-session-reviewer", {
+      sessionRoot: item.root,
+      excludePath: item.sessionPath,
+    });
     assert.equal(excluded.totalMatches, 0);
   } finally {
     item.cleanup();
@@ -69,19 +225,40 @@ test("finds the latest active-branch segment for an agent", async () => {
 test("computes calls and cost only for the selected branch and agent segment", async () => {
   const item = fixture();
   try {
-    const stats = await calculateSessionStats(item.sessionPath, { agentName: "agent-session-reviewer" });
+    const stats = await calculateSessionStats(item.sessionPath, {
+      agentName: "agent-session-reviewer",
+    });
     assert.deepEqual(
-      { total: stats.toolCalls.total, succeeded: stats.toolCalls.succeeded, failed: stats.toolCalls.failed, unresolved: stats.toolCalls.unresolved },
+      {
+        total: stats.toolCalls.total,
+        succeeded: stats.toolCalls.succeeded,
+        failed: stats.toolCalls.failed,
+        unresolved: stats.toolCalls.unresolved,
+      },
       { total: 3, succeeded: 1, failed: 1, unresolved: 1 },
     );
     assert.equal(Number(stats.usage.cost.total.toFixed(6)), 0.6);
     assert.equal(stats.compactions, 1);
-    assert.deepEqual(stats.landmarks.failedToolResults.map((item) => item.id), ["e"]);
-    assert.deepEqual(stats.landmarks.unresolvedToolCalls.map((item) => item.toolCallId), ["tc3"]);
-    assert.deepEqual(stats.landmarks.actionCalls.map((item) => item.toolCallId), ["tc1"]);
-    assert.deepEqual(stats.landmarks.compactions.map((item) => item.id), ["g"]);
+    assert.deepEqual(
+      stats.landmarks.failedToolResults.map((item) => item.id),
+      ["e"],
+    );
+    assert.deepEqual(
+      stats.landmarks.unresolvedToolCalls.map((item) => item.toolCallId),
+      ["tc3"],
+    );
+    assert.deepEqual(
+      stats.landmarks.actionCalls.map((item) => item.toolCallId),
+      ["tc1"],
+    );
+    assert.deepEqual(
+      stats.landmarks.compactions.map((item) => item.id),
+      ["g"],
+    );
 
-    const wholeTree = await calculateSessionStats(item.sessionPath, { scope: "whole-tree" });
+    const wholeTree = await calculateSessionStats(item.sessionPath, {
+      scope: "whole-tree",
+    });
     assert.equal(wholeTree.toolCalls.total, 4);
     assert.equal(Number(wholeTree.usage.cost.total.toFixed(6)), 14.6);
   } finally {
@@ -128,8 +305,18 @@ test("outlines, projects, expands causal context, and enforces a global budget",
       fields: ["type", "role", "toolNames", "toolCallIds", "isError"],
       context: { parents: 1, toolPair: true },
     });
-    assert.deepEqual(causal.events.map((event) => event.id), ["a", "b", "c"]);
-    assert.deepEqual(Object.keys(causal.events[1]), ["line", "id", "type", "role", "toolNames", "toolCallIds"]);
+    assert.deepEqual(
+      causal.events.map((event) => event.id),
+      ["a", "b", "c"],
+    );
+    assert.deepEqual(Object.keys(causal.events[1]), [
+      "line",
+      "id",
+      "type",
+      "role",
+      "toolNames",
+      "toolCallIds",
+    ]);
     assert.deepEqual(causal.coveredLines, { first: 2, last: 4 });
     assert.equal(causal.endReached, true);
 
@@ -152,10 +339,20 @@ test("rejects invalid headers and propagates cancellation", async () => {
   const invalid = join(item.root, "invalid.jsonl");
   writeFileSync(invalid, `${JSON.stringify({ type: "message", id: "x" })}\n`);
   try {
-    await assert.rejects(() => calculateSessionStats(invalid, { scope: "whole-tree" }), /Invalid session header/);
+    await assert.rejects(
+      () => calculateSessionStats(invalid, { scope: "whole-tree" }),
+      /Invalid session header/,
+    );
     const controller = new AbortController();
     controller.abort();
-    await assert.rejects(() => calculateSessionStats(item.sessionPath, { scope: "whole-tree", signal: controller.signal }), { name: "AbortError" });
+    await assert.rejects(
+      () =>
+        calculateSessionStats(item.sessionPath, {
+          scope: "whole-tree",
+          signal: controller.signal,
+        }),
+      { name: "AbortError" },
+    );
   } finally {
     item.cleanup();
   }
@@ -166,10 +363,18 @@ test("registers session tools and keeps them inactive outside explicit agent all
   let onStart: (() => void) | undefined;
   let active = ["read", "session_find", "session_stats", "session_extract"];
   const pi = {
-    registerTool(tool: { name: string }) { names.push(tool.name); },
-    on(event: string, handler: () => void) { if (event === "session_start") onStart = handler; },
-    getActiveTools() { return active; },
-    setActiveTools(next: string[]) { active = next; },
+    registerTool(tool: { name: string }) {
+      names.push(tool.name);
+    },
+    on(event: string, handler: () => void) {
+      if (event === "session_start") onStart = handler;
+    },
+    getActiveTools() {
+      return active;
+    },
+    setActiveTools(next: string[]) {
+      active = next;
+    },
   } as unknown as ExtensionAPI;
 
   registerSessionTools(pi);
