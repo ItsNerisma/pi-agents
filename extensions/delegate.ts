@@ -152,13 +152,13 @@ export function registerDelegateTool(
       if (result.exitCode !== 0 || result.errorMessage) {
         const errMsg = result.errorMessage || result.stderr || result.output || "Unknown error";
         return {
-          content: [{ type: "text", text: `❌ ${result.agent} failed: ${errMsg}` }],
+          content: [{ type: "text", text: `FAILED: ${result.agent} — ${errMsg}` }],
           details,
           isError: true,
         };
       }
 
-      // ── Success — metrics go in details, not in the text ──
+      // ── Success — the final assistant message is already in result.output ──
       const outputText = result.output || "(no output)";
 
       return {
@@ -169,89 +169,62 @@ export function registerDelegateTool(
 
     // ── TUI rendering ──
     renderCall(args, theme, _context) {
-      const agentName = args.agent || "...";
-      const task = args.task || "...";
+      const agentName = args.agent || "?";
+      const task = args.task || "";
 
-      // Compact mode: agent + full prompt
-      let text = theme.fg("toolTitle", theme.bold(`delegate → ${agentName}`));
-      text += `\n\n${theme.fg("toolOutput", `"${task}"`)}`;
+      let text = theme.fg("toolTitle", theme.bold(`DELEGATE TO ${agentName}`));
+      text += "\n" + theme.fg("dim", "PROMPT:");
+      text += "\n" + theme.fg("toolOutput", task);
       return new Text(text, 0, 0);
     },
 
-    renderResult(result, { isPartial, expanded }, theme, context) {
+    renderResult(result, { isPartial }, theme, context) {
       const details = result.details as DelegateDetails | undefined;
       const output = result.content?.[0];
-      const outputText = output?.type === "text" ? output.text : "(no output)";
+      const outputText = output?.type === "text" ? output.text : "";
       const isError = context.isError;
 
-      // ── Partial update (live status) ──
+      const status = isPartial ? "RUNNING" : (isError ? "FAILED" : "DONE");
+      const metricsLine = buildMetricsLine(details, "  ");
+
+      // ── Live status ──
       if (isPartial) {
-        const details = result.details as DelegateDetails | undefined;
         const actions = details?.actions ?? [];
+        const allActions = actions.length > 0
+          ? actions.map(a => `  ${a}`).join("\n")
+          : "  ...";
 
-        // Filter out successes (✅) but keep failures (❌) visible
-        const filtered = actions.filter(a => !a.startsWith("✅"));
+        let text = "\n" +
+          theme.fg("toolTitle", theme.bold(`DELEGATE TO ${details?.agent ?? "?"}`)) +
+          " " + theme.fg("dim", `[${status}]`) + "\n\n" +
+          theme.fg("toolOutput", allActions);
 
-        // Live metrics: tokens ↑↓, cost, duration
-        const metricsLine = buildMetricsLine(details, "  ");
-
-        // Live expanded view: all accumulated actions + thinking text
-        if (expanded) {
-          const allActions = filtered.length > 0
-            ? filtered.map(a => `  ${a}`).join("\n")
-            : "…";
-          let text = `
-${theme.fg("toolTitle", theme.bold(`delegate → ${details?.agent ?? "?"}`))}
-
-${theme.fg("toolOutput", allActions)}`;
-          if (details?.thinkingText) {
-            const truncatedThinking = details.thinkingText.length > 500
-              ? details.thinkingText.slice(0, 500) + "…"
-              : details.thinkingText;
-            text += `
-
-${theme.fg("dim", `🧠 ${truncatedThinking}`)}`;
-          }
-          if (metricsLine) text += `
-
-${theme.fg("dim", metricsLine)}`;
-          return new Text(text, 0, 0);
+        if (details?.thinkingText) {
+          const truncatedThinking = details.thinkingText.length > 500
+            ? details.thinkingText.slice(0, 500) + "..."
+            : details.thinkingText;
+          text += "\n\n" + theme.fg("dim", `thinking: ${truncatedThinking}`);
         }
-
-        // Live compact view: last action only
-        const last = filtered[filtered.length - 1];
-        const actionLine = last ?? (result.content?.[0]?.type === "text" ? result.content[0].text : "…");
-
-        let text = `
-${theme.fg("toolOutput", actionLine)}`;
-        if (metricsLine) text += `
-
-${theme.fg("dim", metricsLine)}`;
+        text += "\n\n" + theme.fg("dim", metricsLine);
         return new Text(text, 0, 0);
       }
 
-      const icon = isError
-        ? theme.fg("error", "✗")
-        : theme.fg("success", "✓");
+      // ── Final result ──
+      let text = "\n" +
+        theme.fg("toolTitle", theme.bold(`DELEGATE TO ${details?.agent ?? "?"}`)) +
+        " " + theme.fg("dim", `[${status}]`);
 
-      // Expanded or compact view (final)
-      let text = `
-${icon} ${theme.fg("toolTitle", theme.bold(details?.agent ?? "?"))}`;
-      if (expanded) {
-        text += `\n${theme.fg("toolOutput", outputText)}`;
-        if (details?.thinkingText) {
-          const truncatedThinking = details.thinkingText.length > 500
-            ? details.thinkingText.slice(0, 500) + "…"
-            : details.thinkingText;
-          text += `\n\n${theme.fg("dim", `🧠 ${truncatedThinking}`)}`;
-        }
-      } else {
-        text += `\n\n${theme.fg("toolOutput", "(Ctrl+O to see full response)")}`;
+      if (outputText) {
+        text += "\n\n" + theme.fg("toolOutput", outputText);
       }
-      if (details?.usage) {
-        const metricsLine = buildMetricsLine(details, "");
-        if (metricsLine) text += `\n${theme.fg("dim", metricsLine)}`;
+
+      if (details?.thinkingText) {
+        const truncatedThinking = details.thinkingText.length > 500
+          ? details.thinkingText.slice(0, 500) + "..."
+          : details.thinkingText;
+        text += "\n\n" + theme.fg("dim", `thinking: ${truncatedThinking}`);
       }
+      text += "\n" + theme.fg("dim", metricsLine);
       return new Text(text, 0, 0);
     },
   });
@@ -260,13 +233,13 @@ ${icon} ${theme.fg("toolTitle", theme.bold(details?.agent ?? "?"))}`;
 function buildMetricsLine(details: DelegateDetails | undefined, prefix: string): string {
   if (!details?.usage) return "";
   const parts: string[] = [];
-  if (details.usage.input) parts.push(`↑${formatTokens(details.usage.input)}`);
-  if (details.usage.output) parts.push(`↓${formatTokens(details.usage.output)}`);
-  if (details.usage.cost) parts.push(`$${details.usage.cost.toFixed(4)}`);
+  parts.push("in: " + formatTokens(details.usage.input));
+  parts.push("out: " + formatTokens(details.usage.output));
+  parts.push("$" + (details.usage.cost || 0).toFixed(4));
   if (details.model) parts.push(details.model);
-  if (details.toolCount) parts.push(`🔧 ${details.toolCount}`);
-  if (details.toolFailCount) parts.push(`❌ ${details.toolFailCount}`);
-  if (details.thinkingPhases) parts.push(`🧠 ${details.thinkingPhases}`);
+  if (details.toolCount) parts.push("tools: " + details.toolCount);
+  if (details.toolFailCount) parts.push("fail: " + details.toolFailCount);
+  if (details.thinkingPhases) parts.push("thinking: " + details.thinkingPhases);
   if (details.durationMs) parts.push(formatDuration(details.durationMs));
-  return parts.length ? prefix + parts.join(" • ") : "";
+  return prefix + parts.join(" | ");
 }

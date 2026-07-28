@@ -95,11 +95,11 @@ function describeToolArgs(args: unknown): string {
 
   // bash: show the command
   if (typeof a.command === "string") {
-    return a.command.length > 70 ? a.command.slice(0, 70) + "…" : a.command;
+    return a.command.length > 70 ? a.command.slice(0, 70) + "..." : a.command;
   }
   // read, write, edit, find, ls: path truncated on the left
   if (typeof a.path === "string") {
-    return a.path.length > 60 ? "…" + a.path.slice(-57) : a.path;
+    return a.path.length > 60 ? "..." + a.path.slice(-57) : a.path;
   }
   // grep: query + path if available
   if (typeof a.query === "string") {
@@ -113,7 +113,7 @@ function describeToolArgs(args: unknown): string {
   }
   // fetch_content: URL
   if (typeof a.url === "string") {
-    return a.url.length > 60 ? "…" + a.url.slice(-57) : a.url;
+    return a.url.length > 60 ? "..." + a.url.slice(-57) : a.url;
   }
   // fallback: first argument
   const first = Object.entries(a)[0];
@@ -170,22 +170,22 @@ function processEvent(
       switch (ame.type) {
         case "thinking_delta":
           state.thinkingText += ame.delta ?? "";
-          actionLine = "�� thinking…";
+          actionLine = "THINKING";
           break;
         case "thinking_start":
         case "thinking_end":
-          actionLine = "�� thinking…";
+          actionLine = "THINKING";
           break;
         case "text_delta":
         case "text_start":
-          actionLine = "�� writing…";
+          actionLine = "WRITING";
           break;
         case "toolcall_delta":
         case "toolcall_start":
           actionLine = ""; // hidden: the real tool name arrives in tool_execution_start
           break;
         default:
-          actionLine = "�� writing…";
+          actionLine = "WRITING";
       }
 
       if (actionLine && state.actions[state.actions.length - 1] !== actionLine) {
@@ -199,7 +199,7 @@ function processEvent(
     case "tool_execution_start": {
       const { toolName, args } = event;
       const detail = describeToolArgs(args);
-      const actionLine = `�� ${toolName}${detail ? " • " + detail : ""}`;
+      const actionLine = `TOOL ${toolName}${detail ? " | " + detail : ""}`;
       state.actions.push(actionLine);
       state.activeTools.push(actionLine);
       state.toolCount++;
@@ -210,10 +210,10 @@ function processEvent(
     // ── Tool end ──
     case "tool_execution_end": {
       const { toolName, isError } = event;
-      const idx = state.activeTools.findIndex(a => a.includes(`�� ${toolName}`));
+      const idx = state.activeTools.findIndex(a => a.includes(`TOOL ${toolName}`));
       if (idx !== -1) state.activeTools.splice(idx, 1);
       if (isError) state.toolFailCount++;
-      state.actions.push(`${isError ? "❌" : "✅"} ${toolName} done`);
+      state.actions.push(`${isError ? "FAILED" : "DONE"} ${toolName}`);
       onUpdate?.(snapshot(state, elapsed));
       break;
     }
@@ -244,10 +244,28 @@ function processEvent(
 
       for (const part of msg.content ?? []) {
         if (part.type === "text" && part.text) {
-          state.output = state.output ? state.output + "\n\n" + part.text : part.text;
-          const truncated = part.text.length > 100 ? `${part.text.slice(0, 100)}…` : part.text;
-          state.actions.push(`�� ${truncated}`);
+          const truncated = part.text.length > 100 ? `${part.text.slice(0, 100)}...` : part.text;
+          state.actions.push(`TEXT ${truncated}`);
           onUpdate?.(snapshot(state, elapsed));
+        }
+      }
+      break;
+    }
+
+    // ── Agent finished ──
+    case "agent_end": {
+      if (event.willRetry) break;
+      const msgs = event.messages as Array<{ role?: string; content?: Array<{ type: string; text?: string }> }>;
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        const m = msgs[i];
+        if (m.role === "assistant" && m.content) {
+          const texts = m.content
+            .filter((c): c is { type: "text"; text: string } => c.type === "text" && typeof c.text === "string")
+            .map(c => c.text);
+          if (texts.length) {
+            state.output = texts.join("\n\n");
+          }
+          break;
         }
       }
       break;
