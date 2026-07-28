@@ -1,9 +1,9 @@
-# AGENTS.md — Conventions du dépôt pi-agents
+# AGENTS.md — pi-agents repository conventions
 
 ## Commits
 
-Format mixte **gitmoji + Conventional Commits**. Les deux styles cohabitent, le
-choix est libre. Exemples observés :
+Mixed **gitmoji + Conventional Commits** style. Both coexist, either is fine.
+Examples from the log:
 
 ```
 ✨ feat(delegate): progressive transcript with resolved tool markers
@@ -14,63 +14,62 @@ choix est libre. Exemples observés :
 🔥 Remove unused outputFormat field
 ```
 
-Les emojis fréquents :
+Common emojis:
 
 | Emoji | Usage |
 |-------|-------|
-| ✨ | Nouvelle fonctionnalité |
-| 🐛 | Correction de bug |
-| 🔖 | Bump de version |
-| ♻️ | Refactoring (pas de changement fonctionnel) |
-| 📝 | Documentation (README, commentaires) |
+| ✨ | New feature |
+| 🐛 | Bug fix |
+| 🔖 | Version bump |
+| ♻️ | Refactoring (no functional change) |
+| 📝 | Documentation (README, comments) |
 | 🎨 | Format, structure, style |
-| 🔥 | Suppression de code |
-| 🌐 | Internationalisation |
+| 🔥 | Code removal |
+| 🌐 | Internationalization |
 
-Un commit = un changement cohérent. Le sujet est en anglais ou en français, à
-l'impératif, concis. Le body optionnel explique le pourquoi.
+One commit = one coherent change. Subject in English or French, imperative,
+concise. Optional body explains the why.
 
-## Versionnement
+## Versioning
 
-Le projet suit [SemVer](https://semver.org). Version actuelle dans
-`package.json` et en tête de `CHANGELOG.md`.
+The project follows [SemVer](https://semver.org). Current version lives in
+`package.json` and at the top of `CHANGELOG.md`.
 
-### Critères de bump
+### Bump criteria
 
-| Bump | Quand |
-|------|-------|
-| **PATCH** (`1.2.3 → 1.2.4`) | Bug fix sans changement d'API. Correction d'un comportement cassé, typo critique. |
-| **MINOR** (`1.2.0 → 1.3.0`) | Nouvelle fonctionnalité rétrocompatible. Nouvel agent, nouvelle option de frontmatter, nouvel outil. |
-| **MAJOR** (`1.0.0 → 2.0.0`) | Breaking change. Suppression d'un champ d'API public, changement de comportement par défaut, montée de peerDependency majeure. |
+| Bump | When |
+|------|------|
+| **PATCH** (`1.2.3 → 1.2.4`) | Bug fix with no API change. Fixing broken behavior, a critical typo. |
+| **MINOR** (`1.2.0 → 1.3.0`) | Backward-compatible new feature. New agent, new frontmatter option, new tool. |
+| **MAJOR** (`1.0.0 → 2.0.0`) | Breaking change. Removing a public API field, changing default behavior, major peerDependency bump. |
 
-En cas d'incertitude, prendre le bump le plus bas qui couvre le changement le
-plus impactant.
+When unsure, take the lowest bump that covers the most impactful change.
 
-### Procédure de release
+### Release process
 
-1. Mettre à jour la version dans `package.json`.
-2. Ajouter l'entrée correspondante en tête de `CHANGELOG.md` (format [Keep a
-   Changelog](https://keepachangelog.com/en/1.1.0/)).
-3. Committer avec `🔖` : `🔖 X.Y.Z` (ou `Bump version to X.Y.Z`).
-4. Optionnel : tagger avec `git tag vX.Y.Z`.
+1. Update the version in `package.json`.
+2. Add the matching entry at the top of `CHANGELOG.md` ([Keep a
+   Changelog](https://keepachangelog.com/en/1.1.0/) format).
+3. Commit with `🔖`: `🔖 X.Y.Z` (or `Bump version to X.Y.Z`).
+4. Optional: tag with `git tag vX.Y.Z`.
 
 ## Changelog
 
-Format [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sections :
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Sections:
 
-- `### Added` — nouvelles fonctionnalités
-- `### Changed` — modifications de comportement existant
-- `### Fixed` — corrections de bugs
-- `### Removed` — fonctionnalités supprimées
+- `### Added` — new features
+- `### Changed` — changes to existing behavior
+- `### Fixed` — bug fixes
+- `### Removed` — removed features
 
-Chaque entrée est une phrase en anglais ou en français, à l'infinitif ou au
-passé. Les sous-listes utilisent `-`.
+Each entry is a sentence in English or French, infinitive or past tense.
+Sub-lists use `-`.
 
-Ne pas regrouper des changements de natures différentes sous la même entrée.
-Chaque ligne = un changement distinct.
+Don't group changes of different natures under the same entry.
+One line = one distinct change.
 
-## Validations avant commit
+## Pre-commit checks
 
-- `npm run typecheck` doit passer (`tsc --noEmit`)
-- `npm test` doit passer (suite de tests Node)
-- Le diff ne contient que les changements intentionnels
+- `npm run typecheck` must pass (`tsc --noEmit`)
+- `npm test` must pass (Node test suite)
+- The diff contains only intentional changes
