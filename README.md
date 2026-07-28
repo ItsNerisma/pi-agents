@@ -230,8 +230,10 @@ name: explorer
 description: Explores a codebase and reports where relevant behavior lives
 tools: read, fffind, ffgrep
 skills: code-review
+model: __PI_DEFAULT_MODEL__
 thinkingLevel: medium
 useAgentFile: true
+delegate: agent-architect, agent-session-reviewer
 ---
 
 Locate the relevant flow and return concise file and symbol references. Do not modify files.
