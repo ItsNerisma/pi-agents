@@ -41,10 +41,8 @@ export async function applyAgent(
   const toolsToSet = resolveTools(agent);
   pi.setActiveTools(toolsToSet);
 
-  if (agent.thinkingLevel) {
-    pi.setThinkingLevel(agent.thinkingLevel as ThinkingLevel);
-  }
-
+  // Set model before thinking level: set_model re-applies the global thinking
+  // default, so the agent's thinkingLevel must come last to stick.
   if (agent.model) {
     // Supports both "provider/model" (composite) and "model" (id only)
     const slashIdx = agent.model.indexOf("/");
@@ -70,6 +68,10 @@ export async function applyAgent(
         "warning",
       );
     }
+  }
+
+  if (agent.thinkingLevel) {
+    pi.setThinkingLevel(agent.thinkingLevel as ThinkingLevel);
   }
 
   return { ...saved, name: agent.name };
