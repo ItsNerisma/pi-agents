@@ -21,7 +21,8 @@
  *
  *   - Auto-activation:
  *       Activates a default agent once per session (system prompt, tools, model,
- *       thinking level). Opt-in via PI_DEFAULT_AGENT.
+ *       thinking level). Opt-in via PI_DEFAULT_AGENT or the persisted global /
+ *       workspace default.
  *
  *   - Main agent (normal mode):
  *       No modification — pi handles APPEND_SYSTEM.md.
@@ -44,6 +45,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { findAgent, resolveTools } from "./registry.js";
 import { applyAgent, readPersistedAgent } from "./activation.js";
+import { getDefaultAgentName } from "./config.js";
 import { composeAgentPrompt } from "./prompt-build.js";
 import { AGENT_PROMPT_VIEW_TYPE, recordSentPrompt } from "./prompt-store.js";
 import { AGENT_TOOLS_VIEW_TYPE, recordSentTools } from "./tools-store.js";
@@ -84,6 +86,7 @@ export function registerHooks(
   pi: ExtensionAPI,
   getActiveAgentName: () => string | null,
   options?: {
+    /** Fixed name used by tests or embedders; otherwise config is resolved per cwd. */
     autoActivateAgentName?: string;
     setActiveAgentState?: (s: ActiveAgentState | null) => void;
   },
@@ -99,7 +102,8 @@ export function registerHooks(
   let warnedGuardBypass = false;
 
   async function activateDefaultAgent(ctx: ExtensionContext): Promise<void> {
-    const agentName = options?.autoActivateAgentName;
+    const agentName =
+      options?.autoActivateAgentName ?? getDefaultAgentName(ctx.cwd);
     if (!agentName || autoActivationAttempted) return;
     autoActivationAttempted = true;
 

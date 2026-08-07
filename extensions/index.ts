@@ -18,7 +18,6 @@ import { registerSkillTools } from "./skill-tools.js";
 import { registerSessionTools } from "./session-tools.js";
 import { registerAgentCommand, showAgentSelector } from "./cmd-agent.js";
 import { registerHooks } from "./hook.js";
-import { getDefaultAgentName } from "./config.js";
 import type { ActiveAgentState } from "./types.js";
 
 export default function (pi: ExtensionAPI) {
@@ -37,11 +36,8 @@ export default function (pi: ExtensionAPI) {
   registerSessionTools(pi);
   registerAgentCommand(pi, getState, setState);
   registerHooks(pi, () => activeAgentState?.name ?? null, {
-    // Opt-in default agent, read from the persisted config (set via
-    // `/agent-default`) or the PI_DEFAULT_AGENT env override. Resolved once at
-    // load; auto-activates the agent at the first before_agent_start. Unset ⇒
-    // no auto-activation.
-    autoActivateAgentName: getDefaultAgentName(),
+    // The global/workspace default and PI_DEFAULT_AGENT are resolved at
+    // session start, when the current workspace cwd is available.
     setActiveAgentState: setState,
   });
 

@@ -27,7 +27,12 @@ import {
 } from "@earendil-works/pi-tui";
 import { discoverAgents } from "./registry.js";
 import { applyAgent, persistActiveAgent } from "./activation.js";
-import { getDefaultAgentName, setDefaultAgentName } from "./config.js";
+import {
+  getDefaultAgentName,
+  getWorkspaceDefaultAgentName,
+  setDefaultAgentName,
+  setWorkspaceDefaultAgentName,
+} from "./config.js";
 import {
   AGENT_PROMPT_VIEW_TYPE,
   getFirstSentPrompt,
@@ -247,6 +252,94 @@ export async function showAgentSelector(
   }
 }
 
+interface ParsedDefaultCommand {
+  scope: "global" | "workspace";
+  value?: string;
+  error?: string;
+}
+
+function parseDefaultCommand(input: string): ParsedDefaultCommand {
+  const tokens = input.trim().split(/\s+/).filter(Boolean);
+  const workspace = tokens.includes("--workspace");
+  const values = tokens.filter((token) => token !== "--workspace");
+  if (values.length > 1) {
+    return {
+      scope: workspace ? "workspace" : "global",
+      error: "Usage: /agent-default [--workspace] [name|off|clear]",
+    };
+  }
+  return {
+    scope: workspace ? "workspace" : "global",
+    value: values[0],
+  };
+}
+
+function defaultAgentCompletions(prefix: string): AutocompleteItem[] | null {
+  const input = prefix.trim();
+  const workspaceFlag = "--workspace";
+  const workspace =
+    input === workspaceFlag || input.startsWith(`${workspaceFlag} `);
+  const namePrefix = workspace
+    ? input.slice(workspaceFlag.length).trim()
+    : input;
+  const items: AutocompleteItem[] = [];
+
+  if (!workspace && workspaceFlag.startsWith(input.toLowerCase())) {
+    items.push({
+      value: workspaceFlag,
+      label: workspaceFlag,
+      description:
+        "Configure the current workspace instead of the global default",
+    });
+  }
+
+  const cwd = process.cwd();
+  const workspaceDefault = workspace
+    ? getWorkspaceDefaultAgentName(cwd)
+    : undefined;
+  const current = workspace
+    ? typeof workspaceDefault === "string"
+      ? workspaceDefault
+      : undefined
+    : getDefaultAgentName();
+
+  if (current && "off".startsWith(namePrefix.toLowerCase())) {
+    items.push({
+      value: "off",
+      label: "off",
+      description: workspace
+        ? `Disable the workspace default (${current})`
+        : `Remove default agent (${current})`,
+    });
+  }
+  if (
+    workspace &&
+    workspaceDefault !== undefined &&
+    "clear".startsWith(namePrefix.toLowerCase())
+  ) {
+    items.push({
+      value: "clear",
+      label: "clear",
+      description:
+        "Remove the workspace override and inherit the global default",
+    });
+  }
+
+  for (const agent of discoverAgents(cwd)) {
+    if (!agent.name.toLowerCase().startsWith(namePrefix.toLowerCase())) {
+      continue;
+    }
+    const isDefault = agent.name === current;
+    items.push({
+      value: agent.name,
+      label: isDefault ? `${agent.name} (default)` : agent.name,
+      description: agent.description,
+    });
+  }
+
+  return items.length > 0 ? items : null;
+}
+
 // ── Registration of the /agent command ──
 export function registerAgentCommand(
   pi: ExtensionAPI,
@@ -306,67 +399,81 @@ export function registerAgentCommand(
   });
 
   // ── /agent-default command: set the agent auto-activated at startup ──
-  // Persisted to <agent dir>/config.json, so it survives pi restarts.
+  // Global settings remain the default; --workspace opts into the current cwd.
   pi.registerCommand("agent-default", {
     description:
-      "Sets the agent activated at pi startup (persistent). Usage: /agent-default [name|off]",
-    getArgumentCompletions: (prefix: string): AutocompleteItem[] | null => {
-      const agents = discoverAgents(process.cwd());
-      const current = getDefaultAgentName();
-      const items: AutocompleteItem[] = [];
-
-      // "off" option if a default is currently set
-      if (current && "off".startsWith(prefix.toLowerCase())) {
-        items.push({
-          value: "off",
-          label: "off",
-          description: `Remove default agent (${current})`,
-        });
-      }
-
-      for (const a of agents) {
-        if (!a.name.toLowerCase().startsWith(prefix.toLowerCase())) continue;
-        const isDefault = a.name === current;
-        items.push({
-          value: a.name,
-          label: isDefault ? `${a.name} (default)` : a.name,
-          description: a.description,
-        });
-      }
-
-      return items.length > 0 ? items : null;
-    },
+      "Set the startup agent globally or for the current workspace. Usage: /agent-default [--workspace] [name|off|clear]",
+    getArgumentCompletions: defaultAgentCompletions,
     handler: async (args, ctx) => {
-      const input = args?.trim() ?? "";
+      const parsed = parseDefaultCommand(args?.trim() ?? "");
+      if (parsed.error) {
+        ctx.ui.notify(parsed.error, "error");
+        return;
+      }
 
-      // ── No argument → show the current default ──
-      if (!input) {
-        const current = getDefaultAgentName();
+      const { scope, value } = parsed;
+      if (!value) {
+        if (scope === "global") {
+          const current = getDefaultAgentName();
+          ctx.ui.notify(
+            current
+              ? `Global default agent: ${current}`
+              : "No global default agent",
+            "info",
+          );
+        } else {
+          const current = getWorkspaceDefaultAgentName(ctx.cwd);
+          ctx.ui.notify(
+            current === undefined
+              ? "No workspace default override (global default is inherited)"
+              : current === null
+                ? "Workspace default disabled (global default is masked)"
+                : `Workspace default agent: ${current}`,
+            "info",
+          );
+        }
+        return;
+      }
+
+      if (scope === "workspace") {
+        if (value === "off") {
+          setWorkspaceDefaultAgentName(ctx.cwd, null);
+          ctx.ui.notify("Workspace default agent disabled", "info");
+          return;
+        }
+        if (value === "clear") {
+          setWorkspaceDefaultAgentName(ctx.cwd, undefined);
+          ctx.ui.notify(
+            "Workspace default removed — global default will be inherited",
+            "info",
+          );
+          return;
+        }
+      } else if (value === "off") {
+        setDefaultAgentName(undefined);
+        ctx.ui.notify("Global default agent removed", "info");
+        return;
+      }
+
+      const agent = discoverAgents(ctx.cwd).find((a) => a.name === value);
+      if (!agent) {
+        ctx.ui.notify(`Agent "${value}" not found`, "error");
+        return;
+      }
+
+      if (scope === "workspace") {
+        setWorkspaceDefaultAgentName(ctx.cwd, agent.name);
         ctx.ui.notify(
-          current ? `Default agent: ${current}` : "No default agent",
+          `Workspace default agent: ${agent.name} — active at next pi start (or /agent ${agent.name} to activate now)`,
           "info",
         );
-        return;
+      } else {
+        setDefaultAgentName(agent.name);
+        ctx.ui.notify(
+          `Global default agent: ${agent.name} — active at next pi start (or /agent ${agent.name} to activate now)`,
+          "info",
+        );
       }
-
-      // ── /agent-default off → clear the default ──
-      if (input === "off") {
-        setDefaultAgentName(undefined);
-        ctx.ui.notify("Default agent removed", "info");
-        return;
-      }
-
-      // ── /agent-default <name> → persist it (applies at next pi start) ──
-      const agent = discoverAgents(ctx.cwd).find((a) => a.name === input);
-      if (!agent) {
-        ctx.ui.notify(`Agent "${input}" not found`, "error");
-        return;
-      }
-      setDefaultAgentName(agent.name);
-      ctx.ui.notify(
-        `Default agent: ${agent.name} — active at next pi start (or /agent ${agent.name} to activate now)`,
-        "info",
-      );
     },
   });
 

@@ -34,7 +34,7 @@ for (const name of [
   }).outputText;
   writeFileSync(join(compiled, `${name}.js`), output);
 }
-const { activateAgent } = await import(
+const { activateAgent, registerAgentCommand } = await import(
   pathToFileURL(join(compiled, "cmd-agent.js")).href
 );
 rmSync(compiled, { recursive: true, force: true });
@@ -47,6 +47,66 @@ tools: [web_search, fetch_content, get_search_content]
 
 Design agents.
 `;
+
+test("configures a workspace default without changing the global default", async () => {
+  const root = mkdtempSync(join(tmpdir(), "pi-agents-cmd-"));
+  const previousHome = process.env.HOME;
+  const previousDefaultAgent = process.env.PI_DEFAULT_AGENT;
+  const notifications: Array<{ message: string; level: string }> = [];
+  const commands = new Map<string, any>();
+  process.env.HOME = join(root, "home");
+  delete process.env.PI_DEFAULT_AGENT;
+  mkdirSync(join(root, ".pi", "agents"), { recursive: true });
+  writeFileSync(
+    join(root, ".pi", "agents", "workspace-agent.md"),
+    `---
+name: workspace-agent
+description: Workspace agent
+---
+
+Work locally.
+`,
+  );
+
+  try {
+    registerAgentCommand(
+      {
+        registerCommand(name: string, command: any) {
+          commands.set(name, command);
+        },
+      } as any,
+      () => null,
+      () => undefined,
+    );
+
+    await commands.get("agent-default").handler("--workspace workspace-agent", {
+      cwd: root,
+      ui: {
+        notify(message: string, level: string) {
+          notifications.push({ message, level });
+        },
+      },
+    });
+
+    assert.deepEqual(
+      JSON.parse(readFileSync(join(root, ".pi", "pi-agents.json"), "utf8")),
+      { defaultAgent: "workspace-agent" },
+    );
+    assert.deepEqual(notifications, [
+      {
+        message:
+          "Workspace default agent: workspace-agent — active at next pi start (or /agent workspace-agent to activate now)",
+        level: "info",
+      },
+    ]);
+  } finally {
+    if (previousHome === undefined) delete process.env.HOME;
+    else process.env.HOME = previousHome;
+    if (previousDefaultAgent === undefined) delete process.env.PI_DEFAULT_AGENT;
+    else process.env.PI_DEFAULT_AGENT = previousDefaultAgent;
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test("refuses the web architect when pi-web-access is unavailable", async () => {
   const root = mkdtempSync(join(tmpdir(), "pi-agents-cmd-"));

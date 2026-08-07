@@ -170,10 +170,13 @@ Agent creation writes the approved definition directly to its final path, then v
 | `/agent-list` | List discovered agents. |
 | `/agent-prompt [first]` | Inspect the effective prompt sent for the active agent. |
 | `/agent-tools` | Inspect the effective tool list sent to the provider. |
-| `/agent-default <name>` | Auto-activate an agent at the next pi start. |
-| `/agent-default off` | Clear the default agent. |
+| `/agent-default <name>` | Configure the global agent auto-activated at the next pi start. |
+| `/agent-default off` | Clear the global default agent. |
+| `/agent-default --workspace <name>` | Configure the current workspace's default agent. |
+| `/agent-default --workspace off` | Disable the workspace default and mask the global one. |
+| `/agent-default --workspace clear` | Remove the workspace override and inherit the global default. |
 
-`PI_DEFAULT_AGENT` overrides the persisted default when set.
+Workspace defaults are stored in `<workspace>/.pi/pi-agents.json`. `PI_DEFAULT_AGENT` overrides both workspace and global defaults when set.
 
 ## Delegation
 

@@ -69,9 +69,15 @@ thinkingLevel: high
 Default prompt.
 `,
   );
+  writeFileSync(
+    join(cwd, ".pi", "pi-agents.json"),
+    JSON.stringify({ defaultAgent: "default-agent" }),
+  );
 
   const previousAgentDirectory = process.env.PI_CODING_AGENT_DIR;
+  const previousDefaultAgent = process.env.PI_DEFAULT_AGENT;
   process.env.PI_CODING_AGENT_DIR = join(cwd, "missing-global-agents");
+  delete process.env.PI_DEFAULT_AGENT;
 
   let activeAgent: ActiveAgentState | null = null;
   let tools = ["read", "bash"];
@@ -104,7 +110,6 @@ Default prompt.
 
   try {
     registerHooks(pi as never, () => activeAgent?.name ?? null, {
-      autoActivateAgentName: "default-agent",
       setActiveAgentState: (state) => {
         activeAgent = state;
       },
@@ -120,6 +125,8 @@ Default prompt.
     if (previousAgentDirectory === undefined)
       delete process.env.PI_CODING_AGENT_DIR;
     else process.env.PI_CODING_AGENT_DIR = previousAgentDirectory;
+    if (previousDefaultAgent === undefined) delete process.env.PI_DEFAULT_AGENT;
+    else process.env.PI_DEFAULT_AGENT = previousDefaultAgent;
     rmSync(cwd, { recursive: true, force: true });
   }
 });
