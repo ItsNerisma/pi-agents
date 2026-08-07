@@ -18,6 +18,9 @@ compileDirectory(join(process.cwd(), "extensions"), compiled);
 const { registerHooks } = await import(
   pathToFileURL(join(compiled, "hook.js")).href
 );
+const { environmentSnippet, toolGuidelinesSnippet } = await import(
+  pathToFileURL(join(compiled, "prompt-build.js")).href
+);
 rmSync(compiled, { recursive: true, force: true });
 
 interface ActiveAgentState {
@@ -51,6 +54,28 @@ function compileDirectory(
     );
   }
 }
+
+test("renders active tool guidelines without duplicating the tool list", () => {
+  const pi = {
+    getAllTools: () => [
+      { name: "read", promptGuidelines: ["Use read to inspect files."] },
+      { name: "bash", promptGuidelines: ["Use bash only when needed."] },
+      { name: "hidden", promptGuidelines: ["Do not expose this."] },
+    ],
+  };
+
+  assert.equal(
+    toolGuidelinesSnippet(pi as never, ["read", "bash"]),
+    "\n\n<tool_guidelines>\n" +
+      "  - read: Use read to inspect files.\n" +
+      "  - bash: Use bash only when needed.\n" +
+      "</tool_guidelines>",
+  );
+  assert.doesNotMatch(
+    environmentSnippet("/tmp", "test-model"),
+    /Available tools/,
+  );
+});
 
 test("activates the default agent when a new session starts", async () => {
   const cwd = mkdtempSync(join(tmpdir(), "pi-agents-hook-"));

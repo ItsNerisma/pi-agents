@@ -6,7 +6,8 @@
  *   agent.systemPrompt                (stable — cache-friendly prefix)
  *   + <available_skills>              (frontmatter skills + project-local skills)
  *   + <project_context>               (pi's contextFiles when `useAgentFile: true`)
- *   + <environment>                   (cwd, platform, model, effective tools, git)
+ *   + <tool_guidelines>              (guidelines exposed by effective tools)
+ *   + <environment>                   (cwd, platform, model, git)
  *   + <current_date>                  (volatile — kept last for prompt caching)
  *
  * Skills and context files come from `event.systemPromptOptions` (what pi
@@ -67,27 +68,64 @@ function gitLines(cwd: string): string[] {
   return lines;
 }
 
-/**
- * Environment block: working dir, platform, active model, tools ACTUALLY sent
- * to the provider (effective allow-list ∩ active set), git snapshot.
- */
-export function environmentSnippet(
-  cwd: string,
-  modelId?: string,
-  tools?: string[],
-): string {
+/** Environment block: working dir, platform, active model and git snapshot. */
+export function environmentSnippet(cwd: string, modelId?: string): string {
   const lines = [
     `Working directory: ${cwd}`,
     `Platform: ${process.platform} (${os.release()})`,
   ];
   if (modelId) lines.push(`Model: ${modelId}`);
-  if (tools?.length) {
-    lines.push(
-      `Available tools (authoritative — only these are callable): ${tools.join(", ")}`,
-    );
-  }
   lines.push(...gitLines(cwd));
   return `\n\n<environment>\n${lines.join("\n")}\n</environment>`;
+}
+
+/** Renders only the prompt guidelines exposed by the tools actually available. */
+export function toolGuidelinesSnippet(
+  pi: ExtensionAPI,
+  tools?: string[],
+): string {
+  if (!tools?.length) return "";
+
+  let allTools: unknown;
+  try {
+    const getAllTools = (pi as ExtensionAPI & { getAllTools?: () => unknown })
+      .getAllTools;
+    if (typeof getAllTools !== "function") return "";
+    allTools = getAllTools.call(pi);
+  } catch {
+    return "";
+  }
+  if (!Array.isArray(allTools)) return "";
+
+  const byName = new Map<string, { promptGuidelines?: unknown }>();
+  for (const tool of allTools) {
+    if (!tool || typeof tool !== "object") continue;
+    const info = tool as { name?: unknown; promptGuidelines?: unknown };
+    if (typeof info.name === "string") {
+      byName.set(info.name, info);
+    }
+  }
+
+  const lines: string[] = [];
+  const seen = new Set<string>();
+  for (const name of tools) {
+    const guidelines = byName.get(name)?.promptGuidelines;
+    if (!Array.isArray(guidelines)) continue;
+
+    for (const guideline of guidelines) {
+      if (typeof guideline !== "string") continue;
+      const text = guideline.trim().replace(/\s+/g, " ");
+      if (!text) continue;
+      const line = `  - ${xmlEscape(name)}: ${xmlEscape(text)}`;
+      if (seen.has(line)) continue;
+      seen.add(line);
+      lines.push(line);
+    }
+  }
+
+  return lines.length
+    ? `\n\n<tool_guidelines>\n${lines.join("\n")}\n</tool_guidelines>`
+    : "";
 }
 
 // ─── Skills ──────────────────────────────────────────────────────────────────
@@ -344,10 +382,11 @@ export function composeAgentPrompt(
   try {
     tools = effectiveToolNames(pi, cwd, agent.name);
   } catch {
-    /* fail-open: no tools line */
+    /* fail-open: no tool guidelines */
   }
 
-  out += environmentSnippet(cwd, agent.model ?? opts.modelId, tools);
+  out += toolGuidelinesSnippet(pi, tools);
+  out += environmentSnippet(cwd, agent.model ?? opts.modelId);
   out += currentDateSnippet();
 
   return { prompt: out, missingSkills: missing, missingDelegates };

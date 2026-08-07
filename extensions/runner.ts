@@ -397,7 +397,7 @@ export async function runAgent(
   const finalPrompt =
     agent.systemPrompt +
     delegationSnippet(agent.name) +
-    environmentSnippet(cwd, agent.model, agent.tools) +
+    environmentSnippet(cwd, agent.model) +
     currentDateSnippet();
 
   const result: AgentResult = {
