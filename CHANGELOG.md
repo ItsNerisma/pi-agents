@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Workspace-scoped default agents via `/agent-default --workspace`.
 
+### Changed
+
+- Injecter automatiquement les `promptGuidelines` des outils actifs dans le prompt des agents, sans recopier leur liste.
+
 ## [1.3.2] - 2026-07-29
 
 ### Fixed
