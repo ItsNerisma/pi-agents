@@ -5,6 +5,19 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-08-09
+
+### Added
+
+- Adaptive read-only planning and explicit approval for non-trivial `agent-pi-engineer` work, with durable decisions and validation mapped before implementation.
+- Responsibility-based architecture, strict TypeScript, Prettier, and focused Node tests as the default quality baseline for new standalone extension packages.
+
+### Changed
+
+- Expanded `agent-pi-engineer` from tools and commands to the full Pi extension lifecycle, including events, UI, state, packaging, security, and mode-aware behavior.
+- Replaced systematic project scaffolding with proportional profiles for local extensions, existing projects, and standalone packages.
+- Raised the minimum supported `@earendil-works/pi-coding-agent` version from 0.80.8 to 0.82.1 (breaking).
+
 ## [1.4.0] - 2026-08-07
 
 ### Added

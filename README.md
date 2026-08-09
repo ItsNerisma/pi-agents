@@ -25,7 +25,7 @@
 | `agent-architect` | Decide whether a need calls for a prompt, skill, tool, or agent, then create an agent when justified — no web access required. |
 | `agent-architect-web` | Same role, with web research when external or unstable information matters; requires `pi-web-access`. |
 | `agent-skill-creator` | Compare existing public skills, create or adapt a standards-compliant skill, and install it safely. |
-| `agent-pi-engineer` | Create or modify a Pi extension that exposes tools or commands, with the smallest reliable change. |
+| `agent-pi-engineer` | Design, create, or modify maintainable Pi extensions — tools, commands, events, UI, or packages — with adaptive planning and targeted validation. |
 | `agent-session-reviewer` | Audit a session, including decision quality, tool usage, missed parallelism, and opportunities for agents, skills, or tools. |
 | `planner` | Explore a change in read-only mode and produce an implementation plan; delegates targeted code harvesting when entry points are unknown. |
 | `code-explorer` | Harvest relevant files, symbols, line ranges, and snippets through a read-only funnel for an agent that will reason from them. |
@@ -47,7 +47,7 @@ The extension supports two execution modes:
 
 ## Install
 
-Requires **Pi ≥ 0.80.8**.
+Requires **Pi ≥ 0.82.1**.
 
 ```bash
 pi install npm:@nerisma/pi-agents
@@ -143,7 +143,7 @@ Project skills are installed under `.pi/skills/<name>/`; global skills go under 
 Add a tool that extracts the schema version from this project's migration files to the nearest project extension.
 ```
 
-The engineer first asks whether you want a new extension project or to modify an existing one, then produces the smallest reliable change using existing code, Node APIs, and pi APIs.
+The engineer infers the appropriate target, explores the installed Pi version and local contracts, and requires an approved implementation plan for non-trivial work. It reuses host tooling for local extensions; new standalone packages default to responsibility-based modules, strict TypeScript, Prettier, and focused Node tests where behavior warrants them. Durable architecture, compatibility, state, and security decisions are made explicit instead of being hidden in scaffolding.
 
 ### Review a session
 
